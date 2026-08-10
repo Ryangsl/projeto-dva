@@ -20,8 +20,6 @@ export interface UsuarioGerenciado {
   nome: string;
   email: string;
   perfil: PerfilGerenciavel;
-  centroDistribuicaoId: number | null;
-  centroDistribuicaoNome: string | null;
   ativo: boolean;
   senhaDefinida: boolean;
   ultimoLogin: string | null;
@@ -33,19 +31,13 @@ interface UsuarioRow extends RowDataPacket {
   nome: string;
   email: string;
   perfil: PerfilGerenciavel;
-  centro_distribuicao_id: number | null;
-  centro_distribuicao_nome: string | null;
   ativo: number;
   senha_definida: number;
   ultimo_login: string | null;
   created_at: string;
 }
 
-const CAMPOS = `
-  u.id, u.nome, u.email, u.perfil, u.centro_distribuicao_id,
-  c.nome AS centro_distribuicao_nome, u.ativo, u.senha_definida, u.ultimo_login, u.created_at
-`;
-const FROM = 'FROM usuarios u LEFT JOIN centros_distribuicao c ON c.id = u.centro_distribuicao_id';
+const CAMPOS = 'id, nome, email, perfil, ativo, senha_definida, ultimo_login, created_at';
 
 function mapear(r: UsuarioRow): UsuarioGerenciado {
   return {
@@ -53,8 +45,6 @@ function mapear(r: UsuarioRow): UsuarioGerenciado {
     nome: r.nome,
     email: r.email,
     perfil: r.perfil,
-    centroDistribuicaoId: r.centro_distribuicao_id,
-    centroDistribuicaoNome: r.centro_distribuicao_nome,
     ativo: Boolean(r.ativo),
     senhaDefinida: Boolean(r.senha_definida),
     ultimoLogin: r.ultimo_login,
@@ -70,25 +60,18 @@ function isDuplicateEmail(err: unknown): boolean {
 // em shared/senha.ts, para o db:setup poder usá-la sem carregar o pool).
 export { gerarSenhaTemporaria };
 
-// Centros ativos disponíveis para vincular a um operador (mesma lista usada
-// pelo formulário de cadastro de veículo — ver modules/centros/).
-export async function centrosDisponiveis(): Promise<{ id: number; nome: string }[]> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT id, nome FROM centros_distribuicao WHERE ativo = 1 ORDER BY nome',
-  );
-  return rows.map((r) => ({ id: r.id as number, nome: r.nome as string }));
-}
-
 // Lista todos os operadores (contas admin nunca aparecem aqui).
 export async function listar(): Promise<UsuarioGerenciado[]> {
   const [rows] = await pool.query<UsuarioRow[]>(
-    `SELECT ${CAMPOS} ${FROM} WHERE u.perfil = 'operador' ORDER BY u.nome`,
+    `SELECT ${CAMPOS} FROM usuarios WHERE perfil = 'operador' ORDER BY nome`,
   );
   return rows.map(mapear);
 }
 
 async function buscarOperador(id: number): Promise<UsuarioRow> {
-  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} ${FROM} WHERE u.id = ? LIMIT 1`, [id]);
+  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} FROM usuarios WHERE id = ? LIMIT 1`, [
+    id,
+  ]);
   const usuario = rows[0];
   if (!usuario) throw notFound('Usuário não encontrado');
   if (usuario.perfil !== 'operador') {
@@ -100,7 +83,6 @@ async function buscarOperador(id: number): Promise<UsuarioRow> {
 export interface DadosCriacao {
   nome: string;
   email: string;
-  centroDistribuicaoId: number;
 }
 
 export interface ResultadoCriacao {
@@ -115,8 +97,8 @@ export async function criar(dados: DadosCriacao): Promise<ResultadoCriacao> {
   let insertId: number;
   try {
     const [resultado] = await pool.query<ResultSetHeader>(
-      'INSERT INTO usuarios (nome, email, senha_hash, perfil, centro_distribuicao_id, senha_definida) VALUES (?, ?, ?, ?, ?, 0)',
-      [dados.nome, dados.email, senhaHash, 'operador', dados.centroDistribuicaoId],
+      'INSERT INTO usuarios (nome, email, senha_hash, perfil, senha_definida) VALUES (?, ?, ?, ?, 0)',
+      [dados.nome, dados.email, senhaHash, 'operador'],
     );
     insertId = resultado.insertId;
   } catch (err) {
@@ -132,7 +114,6 @@ export interface DadosAtualizacao {
   nome?: string;
   email?: string;
   ativo?: boolean;
-  centroDistribuicaoId?: number;
 }
 
 export async function atualizar(id: number, dados: DadosAtualizacao): Promise<UsuarioGerenciado> {
@@ -151,10 +132,6 @@ export async function atualizar(id: number, dados: DadosAtualizacao): Promise<Us
   if (dados.ativo !== undefined) {
     campos.push('ativo = ?');
     valores.push(dados.ativo ? 1 : 0);
-  }
-  if (dados.centroDistribuicaoId !== undefined) {
-    campos.push('centro_distribuicao_id = ?');
-    valores.push(dados.centroDistribuicaoId);
   }
 
   if (campos.length > 0) {

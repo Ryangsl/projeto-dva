@@ -9,40 +9,26 @@ export interface UsuarioGerenciado {
   nome: string;
   email: string;
   perfil: PerfilGerenciavel;
-  centroDistribuicaoId: number | null;
-  centroDistribuicaoNome: string | null;
   ativo: boolean;
   senhaDefinida: boolean;
   ultimoLogin: string | null;
   criadoEm: string;
 }
 
-export interface CentroOpcao {
-  id: number;
-  nome: string;
-}
-
 export interface DadosCriacao {
   nome: string;
   email: string;
-  centroDistribuicaoId: number;
 }
 
 export interface DadosAtualizacao {
   nome?: string;
   email?: string;
   ativo?: boolean;
-  centroDistribuicaoId?: number;
 }
 
 export async function listarUsuarios(): Promise<UsuarioGerenciado[]> {
   const { data } = await api.get<{ usuarios: UsuarioGerenciado[] }>('/usuarios');
   return data.usuarios;
-}
-
-export async function buscarCentrosDisponiveis(): Promise<CentroOpcao[]> {
-  const { data } = await api.get<{ centros: CentroOpcao[] }>('/usuarios/centros-disponiveis');
-  return data.centros;
 }
 
 export async function criarUsuario(

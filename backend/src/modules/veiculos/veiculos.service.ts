@@ -4,7 +4,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database.js';
 import { env } from '../../config/env.js';
 import type { Perfil } from '../../middlewares/auth.js';
-import { badRequest, forbidden, notFound } from '../../shared/http-error.js';
+import { badRequest, notFound } from '../../shared/http-error.js';
 import { gerarProtocolo } from '../../shared/protocolo.js';
 import { MARCAS_DVA } from './marcas-dva.js';
 import { UPLOAD_DIR } from './upload.js';
@@ -25,21 +25,8 @@ export interface Marca {
   modelos: Modelo[];
 }
 
-export interface Cor {
-  id: number;
-  nome: string;
-  hex: string;
-}
-
-export interface Centro {
-  id: number;
-  nome: string;
-}
-
 export interface OpcoesFormulario {
   marcas: Marca[];
-  cores: Cor[];
-  centros: Centro[];
 }
 
 // Marcas do DVA presentes no catálogo FIPE (cross-database), com seus
@@ -71,22 +58,7 @@ async function obterMarcasComModelos(): Promise<Marca[]> {
 }
 
 export async function obterOpcoes(): Promise<OpcoesFormulario> {
-  const [marcas, [coresRows], [centrosRows]] = await Promise.all([
-    obterMarcasComModelos(),
-    pool.query<RowDataPacket[]>('SELECT id, nome, hex FROM cores WHERE ativo = 1 ORDER BY ordem, nome'),
-    pool.query<RowDataPacket[]>(
-      'SELECT id, nome FROM centros_distribuicao WHERE ativo = 1 ORDER BY nome',
-    ),
-  ]);
-  return {
-    marcas,
-    cores: (coresRows as { id: number; nome: string; hex: string }[]).map((r) => ({
-      id: r.id,
-      nome: r.nome,
-      hex: r.hex,
-    })),
-    centros: (centrosRows as { id: number; nome: string }[]).map((r) => ({ id: r.id, nome: r.nome })),
-  };
+  return { marcas: await obterMarcasComModelos() };
 }
 
 async function existeMarca(marcaId: number): Promise<boolean> {
@@ -130,8 +102,6 @@ export interface DadosCriacaoVeiculo {
   chassi: string;
   marcaId: number;
   modeloId?: number;
-  corId?: number;
-  centroDistribuicaoId?: number; // só usado/obrigatório quando quem cadastra é admin
   destino?: string;
   observacoes?: string;
 }
@@ -144,21 +114,16 @@ export interface ArquivosVeiculo {
 export interface UsuarioAutenticado {
   sub: number;
   perfil: Perfil;
-  centroDistribuicaoId: number | null;
 }
 
 const SELECT_DETALHE = `
   SELECT v.id, v.chassi, v.protocolo, v.destino, v.observacoes, v.video_path, v.criado_em,
-         v.marca_id, v.modelo_id, v.cor_id,
+         v.marca_id, v.modelo_id, v.usuario_id,
          b.name AS marca_nome, m.name AS modelo_nome,
-         c.nome AS cor_nome, c.hex AS cor_hex,
-         cd.id AS centro_id, cd.nome AS centro_nome,
          u.nome AS usuario_nome
     FROM veiculos v
     JOIN \`${VDB}\`.vehicle_brands b ON b.id = v.marca_id
     LEFT JOIN \`${VDB}\`.vehicle_models m ON m.id = v.modelo_id
-    LEFT JOIN cores c ON c.id = v.cor_id
-    JOIN centros_distribuicao cd ON cd.id = v.centro_distribuicao_id
     JOIN usuarios u ON u.id = v.usuario_id
 `;
 
@@ -172,13 +137,9 @@ interface VeiculoRow extends RowDataPacket {
   criado_em: string;
   marca_id: number;
   modelo_id: number | null;
-  cor_id: number | null;
+  usuario_id: number;
   marca_nome: string;
   modelo_nome: string | null;
-  cor_nome: string | null;
-  cor_hex: string | null;
-  centro_id: number;
-  centro_nome: string;
   usuario_nome: string;
 }
 
@@ -188,9 +149,6 @@ export interface VeiculoResumo {
   protocolo: string;
   marcaNome: string;
   modeloNome: string | null;
-  corNome: string | null;
-  corHex: string | null;
-  centroNome: string;
   destino: string | null;
   usuarioNome: string;
   criadoEm: string;
@@ -209,9 +167,6 @@ function mapearResumo(r: VeiculoRow): VeiculoResumo {
     protocolo: r.protocolo,
     marcaNome: r.marca_nome,
     modeloNome: r.modelo_nome,
-    corNome: r.cor_nome,
-    corHex: r.cor_hex,
-    centroNome: r.centro_nome,
     destino: r.destino,
     usuarioNome: r.usuario_nome,
     criadoEm: r.criado_em,
@@ -236,18 +191,6 @@ export async function criar(
   arquivos: ArquivosVeiculo,
   usuario: UsuarioAutenticado,
 ): Promise<VeiculoDetalhe> {
-  let centroId: number;
-  if (usuario.perfil === 'operador') {
-    // Nunca confia no corpo: o centro do operador é sempre o próprio, fixo.
-    if (!usuario.centroDistribuicaoId) {
-      throw forbidden('Sua conta não tem centro de distribuição associado');
-    }
-    centroId = usuario.centroDistribuicaoId;
-  } else {
-    if (!dados.centroDistribuicaoId) throw badRequest('Selecione o centro de distribuição');
-    centroId = dados.centroDistribuicaoId;
-  }
-
   if (!(await existeMarca(dados.marcaId))) throw badRequest('Marca inválida');
   if (dados.modeloId !== undefined && !(await existeModelo(dados.modeloId, dados.marcaId))) {
     throw badRequest('Modelo inválido para a marca selecionada');
@@ -263,15 +206,13 @@ export async function criar(
     try {
       const [resultado] = await pool.query<ResultSetHeader>(
         `INSERT INTO veiculos
-          (chassi, protocolo, marca_id, modelo_id, cor_id, centro_distribuicao_id, destino, observacoes, video_path, usuario_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (chassi, protocolo, marca_id, modelo_id, destino, observacoes, video_path, usuario_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           chassi,
           protocolo,
           dados.marcaId,
           dados.modeloId ?? null,
-          dados.corId ?? null,
-          centroId,
           dados.destino ?? null,
           dados.observacoes ?? null,
           videoPath,
@@ -306,7 +247,9 @@ export async function criar(
 export interface FiltrosListagem {
   chassi?: string;
   marcaId?: number;
-  centroDistribuicaoId?: number;
+  // Escopo de "Meus Registros" — nunca aceito do cliente, sempre injetado
+  // pelo controller a partir do usuário autenticado (ver meusRegistros()).
+  usuarioId?: number;
   pagina?: number;
   limite?: number;
 }
@@ -329,9 +272,9 @@ export async function listar(filtros: FiltrosListagem): Promise<ListagemVeiculos
     condicoes.push('v.marca_id = ?');
     parametros.push(filtros.marcaId);
   }
-  if (filtros.centroDistribuicaoId) {
-    condicoes.push('v.centro_distribuicao_id = ?');
-    parametros.push(filtros.centroDistribuicaoId);
+  if (filtros.usuarioId) {
+    condicoes.push('v.usuario_id = ?');
+    parametros.push(filtros.usuarioId);
   }
   const where = condicoes.length > 0 ? `WHERE ${condicoes.join(' AND ')}` : '';
 
@@ -353,10 +296,21 @@ export async function listar(filtros: FiltrosListagem): Promise<ListagemVeiculos
   return { veiculos: rows.map(mapearResumo), total, pagina, limite };
 }
 
-export async function buscarPorId(id: number): Promise<VeiculoDetalhe> {
+// `escopo` é omitido nas chamadas internas (ex.: logo após `criar()`, onde
+// quem acabou de cadastrar sempre pode ver o próprio registro). Quando
+// informado (toda chamada vinda do controller), aplica a mesma regra de
+// "Meus Registros": Admin vê qualquer veículo; Operador só o que ele mesmo
+// cadastrou — 404 para o resto, sem revelar se o id existe.
+export async function buscarPorId(
+  id: number,
+  escopo?: { perfil: Perfil; usuarioId: number },
+): Promise<VeiculoDetalhe> {
   const [rows] = await pool.query<VeiculoRow[]>(`${SELECT_DETALHE} WHERE v.id = ? LIMIT 1`, [id]);
   const veiculo = rows[0];
   if (!veiculo) throw notFound('Veículo não encontrado');
+  if (escopo && escopo.perfil !== 'admin' && veiculo.usuario_id !== escopo.usuarioId) {
+    throw notFound('Veículo não encontrado');
+  }
   return mapearDetalhe(veiculo);
 }
 

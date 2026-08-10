@@ -14,7 +14,7 @@ function mensagemDeErro(err: unknown, fallback: string): string {
 }
 
 // Orquestra as duas telas do cadastro de veículo:
-//  1. Wizard — o operador preenche centro/marca/modelo/chassi/cor/evidências;
+//  1. Wizard — o operador preenche marca/modelo/chassi/evidências;
 //  2. Confirmação — resumo do que foi salvo, com atalho para cadastrar outro.
 // Ao contrário do antigo Guia, o cadastro É gravado no banco (upload de
 // fotos/vídeo exige rede de qualquer forma) — não há cache offline aqui.
@@ -32,15 +32,6 @@ export function VeiculoPage() {
       .catch(() => setErro('Não foi possível carregar os dados do formulário.'));
   }, []);
 
-  // Operador tem centro fixo (o da própria conta) — já entra selecionado.
-  useEffect(() => {
-    if (!dados || !usuario || usuario.perfil !== 'operador' || !usuario.centroDistribuicaoId) return;
-    const centroDoUsuario = dados.centros.find((c) => c.id === usuario.centroDistribuicaoId);
-    if (centroDoUsuario) {
-      setVeiculo((v) => (v.centro ? v : { ...v, centro: centroDoUsuario }));
-    }
-  }, [dados, usuario]);
-
   async function salvar() {
     setErro('');
     setEnviando(true);
@@ -56,9 +47,7 @@ export function VeiculoPage() {
 
   function novoCadastro() {
     setCriado(null);
-    setVeiculo((v) =>
-      usuario?.perfil === 'operador' ? { ...NOVO_VEICULO_VAZIO, centro: v.centro } : NOVO_VEICULO_VAZIO,
-    );
+    setVeiculo(NOVO_VEICULO_VAZIO);
   }
 
   return (
@@ -66,19 +55,21 @@ export function VeiculoPage() {
       <AppHeader
         titulo="Cadastro de Veículo"
         acoes={
-          usuario?.perfil === 'admin' && (
-            <>
-              <Link to="/usuarios" className="app-topo-link">
-                Usuários
-              </Link>
-              <Link to="/centros" className="app-topo-link">
-                Centros
-              </Link>
-              <Link to="/monitoramento" className="app-topo-link">
-                Monitoramento
-              </Link>
-            </>
-          )
+          <>
+            <Link to="/meus-registros" className="app-topo-link">
+              Meus Registros
+            </Link>
+            {usuario?.perfil === 'admin' && (
+              <>
+                <Link to="/usuarios" className="app-topo-link">
+                  Usuários
+                </Link>
+                <Link to="/monitoramento" className="app-topo-link">
+                  Monitoramento
+                </Link>
+              </>
+            )}
+          </>
         }
       />
 

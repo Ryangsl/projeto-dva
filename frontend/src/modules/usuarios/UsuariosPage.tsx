@@ -4,12 +4,10 @@ import { AppHeader } from '../../components/AppHeader';
 import { Modal } from '../../components/Modal';
 import {
   atualizarUsuario,
-  buscarCentrosDisponiveis,
   criarUsuario,
   excluirUsuario,
   listarUsuarios,
   resetarSenha,
-  type CentroOpcao,
   type UsuarioGerenciado,
 } from '../../services/usuarios.service';
 import '../veiculos/veiculos.css';
@@ -23,15 +21,13 @@ function mensagemDeErro(err: unknown, fallback: string): string {
 interface FormularioCriacao {
   nome: string;
   email: string;
-  centroDistribuicaoId: string;
 }
 
-const FORM_VAZIO: FormularioCriacao = { nome: '', email: '', centroDistribuicaoId: '' };
+const FORM_VAZIO: FormularioCriacao = { nome: '', email: '' };
 
 // Gerenciamento de operadores — tela exclusiva do Admin (o backend também restringe).
 export function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioGerenciado[] | null>(null);
-  const [centros, setCentros] = useState<CentroOpcao[]>([]);
   const [erro, setErro] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
   const [form, setForm] = useState<FormularioCriacao>(FORM_VAZIO);
@@ -52,11 +48,6 @@ export function UsuariosPage() {
 
   useEffect(() => {
     carregar();
-    buscarCentrosDisponiveis()
-      .then(setCentros)
-      .catch(() => {
-        /* select fica vazio; o formulário acusa ao tentar enviar sem centro */
-      });
   }, [carregar]);
 
   async function handleCriar(e: FormEvent) {
@@ -67,7 +58,6 @@ export function UsuariosPage() {
       const { usuario: criado, senhaTemporaria } = await criarUsuario({
         nome: form.nome,
         email: form.email,
-        centroDistribuicaoId: Number(form.centroDistribuicaoId),
       });
       setForm(FORM_VAZIO);
       setMostrarForm(false);
@@ -82,17 +72,13 @@ export function UsuariosPage() {
 
   function iniciarEdicao(u: UsuarioGerenciado) {
     setEditandoId(u.id);
-    setEdicao({ nome: u.nome, email: u.email, centroDistribuicaoId: u.centroDistribuicaoId });
+    setEdicao({ nome: u.nome, email: u.email });
   }
 
   async function salvarEdicao(id: number) {
     setErro('');
     try {
-      await atualizarUsuario(id, {
-        nome: edicao.nome,
-        email: edicao.email,
-        centroDistribuicaoId: edicao.centroDistribuicaoId ?? undefined,
-      });
+      await atualizarUsuario(id, { nome: edicao.nome, email: edicao.email });
       setEditandoId(null);
       carregar();
     } catch (err) {
@@ -147,8 +133,8 @@ export function UsuariosPage() {
         titulo="Usuários"
         acoes={
           <>
-            <Link to="/centros" className="app-topo-link">
-              Centros
+            <Link to="/meus-registros" className="app-topo-link">
+              Meus Registros
             </Link>
             <Link to="/monitoramento" className="app-topo-link">
               Monitoramento
@@ -164,7 +150,7 @@ export function UsuariosPage() {
         {erro && <div className="erro" role="alert">{erro}</div>}
 
         <div className="usuarios-topo">
-          <p className="usuarios-legenda">Operadores de todos os centros de distribuição.</p>
+          <p className="usuarios-legenda">Operadores do sistema.</p>
           <button className="btn btn-primario" onClick={() => setMostrarForm((v) => !v)}>
             {mostrarForm ? 'Cancelar' : '+ Novo usuário'}
           </button>
@@ -190,24 +176,6 @@ export function UsuariosPage() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 required
               />
-            </div>
-            <div className="campo">
-              <label htmlFor="novo-centro">Centro de distribuição</label>
-              <select
-                id="novo-centro"
-                value={form.centroDistribuicaoId}
-                onChange={(e) => setForm((f) => ({ ...f, centroDistribuicaoId: e.target.value }))}
-                required
-              >
-                <option value="" disabled>
-                  Selecione...
-                </option>
-                {centros.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
             </div>
             <button type="submit" className="btn btn-primario btn-bloco" disabled={enviando}>
               {enviando ? 'Criando...' : 'Criar usuário'}
@@ -235,19 +203,6 @@ export function UsuariosPage() {
                     placeholder="E-mail"
                     type="email"
                   />
-                  <select
-                    className="usuarios-edicao-campo"
-                    value={edicao.centroDistribuicaoId ?? ''}
-                    onChange={(e) =>
-                      setEdicao((f) => ({ ...f, centroDistribuicaoId: Number(e.target.value) }))
-                    }
-                  >
-                    {centros.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
-                  </select>
                   <div className="usuarios-edicao-acoes">
                     <button className="btn btn-primario" onClick={() => salvarEdicao(u.id)}>
                       Salvar
@@ -270,10 +225,7 @@ export function UsuariosPage() {
                         </span>
                       )}
                     </div>
-                    <div className="usuarios-meta">
-                      {u.email}
-                      {u.centroDistribuicaoNome && ` · ${u.centroDistribuicaoNome}`}
-                    </div>
+                    <div className="usuarios-meta">{u.email}</div>
                   </div>
                   <div className="usuarios-acoes">
                     <button className="btn btn-secundario" onClick={() => iniciarEdicao(u)}>

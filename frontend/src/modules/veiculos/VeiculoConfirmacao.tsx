@@ -29,16 +29,6 @@ export function VeiculoConfirmacao({ veiculo, onNovo }: Props) {
             <div className="atendimento-veiculo">
               <span className="atendimento-tag">{veiculo.marcaNome}</span>
               {veiculo.modeloNome && <span className="atendimento-tag">{veiculo.modeloNome}</span>}
-              {veiculo.corNome && (
-                <span className="atendimento-tag">
-                  <span
-                    className="cor-bola-mini"
-                    style={{ background: veiculo.corHex ?? '#ccc', borderRadius: '50%' }}
-                  />
-                  {veiculo.corNome}
-                </span>
-              )}
-              <span className="atendimento-tag">{veiculo.centroNome}</span>
               {veiculo.destino && <span className="atendimento-tag">Destino: {veiculo.destino}</span>}
             </div>
           </div>

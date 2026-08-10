@@ -10,28 +10,20 @@ interface UsuarioRow extends RowDataPacket {
   email: string;
   senha_hash: string;
   perfil: Perfil;
-  centro_distribuicao_id: number | null;
-  centro_distribuicao_nome: string | null;
   senha_definida: number;
   ativo: number;
 }
 
 const SELECT_USUARIO = `
-  SELECT u.id, u.nome, u.email, u.senha_hash, u.perfil, u.centro_distribuicao_id,
-         c.nome AS centro_distribuicao_nome, u.senha_definida, u.ativo
+  SELECT u.id, u.nome, u.email, u.senha_hash, u.perfil, u.senha_definida, u.ativo
     FROM usuarios u
-    LEFT JOIN centros_distribuicao c ON c.id = u.centro_distribuicao_id
 `;
 
-// `centroDistribuicaoId` restringe o Operador ao centro de onde ele cadastra
-// veículos (NULL = Admin, sem restrição).
 export interface UsuarioPublico {
   id: number;
   nome: string;
   email: string;
   perfil: Perfil;
-  centroDistribuicaoId: number | null;
-  centroDistribuicaoNome: string | null;
   senhaDefinida: boolean;
 }
 
@@ -46,8 +38,6 @@ function mapear(r: UsuarioRow): UsuarioPublico {
     nome: r.nome,
     email: r.email,
     perfil: r.perfil,
-    centroDistribuicaoId: r.centro_distribuicao_id,
-    centroDistribuicaoNome: r.centro_distribuicao_nome,
     senhaDefinida: Boolean(r.senha_definida),
   };
 }

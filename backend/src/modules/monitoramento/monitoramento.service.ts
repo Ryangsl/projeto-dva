@@ -18,7 +18,6 @@ export interface DashboardVeiculos {
   totalVeiculos: number;
   veiculosHoje: number;
   veiculosPeriodo: number;
-  porCentro: ContagemPorGrupo[];
   porMarca: ContagemPorGrupo[];
   serieDiaria: PontoSerie[];
 }
@@ -43,27 +42,13 @@ function montarSerie(dias: number, linhas: { dia: string; total: number }[]): Po
 }
 
 export async function obterDashboard(dias: number): Promise<DashboardVeiculos> {
-  const [
-    [totalRows],
-    [hojeRows],
-    [periodoRows],
-    [centroRows],
-    [marcaRows],
-    [serieRows],
-  ] = await Promise.all([
+  const [[totalRows], [hojeRows], [periodoRows], [marcaRows], [serieRows]] = await Promise.all([
     pool.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM veiculos'),
     pool.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM veiculos WHERE DATE(criado_em) = CURDATE()'),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(*) AS total FROM veiculos WHERE criado_em >= (NOW() - INTERVAL ? DAY)',
       [dias],
     ),
-    pool.query<RowDataPacket[]>(`
-      SELECT cd.nome AS nome, COUNT(*) AS total
-        FROM veiculos v
-        JOIN centros_distribuicao cd ON cd.id = v.centro_distribuicao_id
-       GROUP BY cd.id, cd.nome
-       ORDER BY total DESC
-    `),
     pool.query<RowDataPacket[]>(`
       SELECT b.name AS nome, COUNT(*) AS total
         FROM veiculos v
@@ -84,10 +69,6 @@ export async function obterDashboard(dias: number): Promise<DashboardVeiculos> {
     totalVeiculos: (totalRows[0] as { total: number }).total,
     veiculosHoje: (hojeRows[0] as { total: number }).total,
     veiculosPeriodo: (periodoRows[0] as { total: number }).total,
-    porCentro: (centroRows as { nome: string; total: number }[]).map((r) => ({
-      nome: r.nome,
-      total: r.total,
-    })),
     porMarca: (marcaRows as { nome: string; total: number }[]).map((r) => ({
       nome: r.nome,
       total: r.total,

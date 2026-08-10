@@ -39,14 +39,6 @@ export function VeiculoDetalheModal({ veiculo, onFechar, souAdmin, onExcluir }: 
             <p>{veiculo.modeloNome ?? '—'}</p>
           </div>
           <div>
-            <span className="atendimento-rotulo">Cor</span>
-            <p>{veiculo.corNome ?? '—'}</p>
-          </div>
-          <div>
-            <span className="atendimento-rotulo">Centro de distribuição</span>
-            <p>{veiculo.centroNome}</p>
-          </div>
-          <div>
             <span className="atendimento-rotulo">Destino</span>
             <p>{veiculo.destino ?? '—'}</p>
           </div>

@@ -10,9 +10,6 @@ export interface AuthUser {
   sub: number;
   nome: string;
   perfil: Perfil;
-  // Centro de distribuição do Operador (null = Admin, sem restrição).
-  centroDistribuicaoId: number | null;
-  centroDistribuicaoNome: string | null;
   // Primeiro acesso concluído? (false = ainda precisa trocar a senha temporária)
   senhaDefinida: boolean;
   // Id da sessão (do token) — usado pelo heartbeat e nos registros de uso.
@@ -31,8 +28,8 @@ declare global {
 
 // Autenticação por JWT em cookie httpOnly (`procar_token`). Validamos a
 // assinatura/expiração do token e, em seguida, relemos o usuário no banco para
-// (a) revogar imediatamente usuários inativos e (b) refletir perfil/marca/estado
-// de senha atuais mesmo que tenham mudado após a emissão do token.
+// (a) revogar imediatamente usuários inativos e (b) refletir perfil/estado de
+// senha atuais mesmo que tenham mudado após a emissão do token.
 export async function authenticate(
   req: Request,
   _res: Response,
@@ -65,8 +62,6 @@ export async function authenticate(
     sub: usuario.id,
     nome: usuario.nome,
     perfil: usuario.perfil,
-    centroDistribuicaoId: usuario.centroDistribuicaoId,
-    centroDistribuicaoNome: usuario.centroDistribuicaoNome,
     senhaDefinida: usuario.senhaDefinida,
     sessaoId: payload.sid,
   };
@@ -86,7 +81,7 @@ export function authorize(...perfis: Perfil[]) {
 // Bloqueia o uso normal do sistema enquanto o usuário não concluir o primeiro
 // acesso (troca da senha temporária). O front reconhece o `code` e redireciona
 // para a tela de definição de senha. Usar depois de authenticate, nos routers
-// que exigem senha já definida (veiculos, centros, monitoramento, usuarios).
+// que exigem senha já definida (veiculos, monitoramento, usuarios).
 export function exigirSenhaDefinida(
   req: Request,
   res: Response,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Usuario } from '../../types';
 import { chassiExiste } from '../../services/veiculos.service';
-import type { Centro, Cor, Marca, Modelo, NovoVeiculo, OpcoesFormulario } from './veiculos.types';
+import type { Marca, Modelo, NovoVeiculo, OpcoesFormulario } from './veiculos.types';
 
 interface Props {
   dados: OpcoesFormulario;
@@ -36,7 +36,7 @@ function formatarTamanho(bytes: number): string {
 
 // Formulário progressivo de cadastro: cada passo obrigatório só aparece
 // quando o anterior foi preenchido — mesmo padrão do wizard de atendimento
-// original. Campos opcionais (cor, fotos, vídeo, observações, destino) são
+// original. Campos opcionais (fotos, vídeo, observações, destino) são
 // revelados juntos assim que o chassi é válido, em vez de um a um: nenhum
 // deles bloqueia o cadastro, então forçar uma sequência estrita só atrapalharia.
 export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, enviando }: Props) {
@@ -45,22 +45,16 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
   const [verificandoChassi, setVerificandoChassi] = useState(false);
   const [previaVideo, setPreviaVideo] = useState(false);
 
-  // Admin escolhe o centro entre todos os ativos; Operador tem um único
-  // centro fixo (o da própria conta), já resolvido pelo componente pai
-  // (VeiculoPage) assim que os dados chegam — aqui só lemos.
-  const escolheCentro = usuario.perfil === 'admin';
-  const temCentro = Boolean(veiculo.centro);
   const chassiValido = veiculo.chassi.trim().length >= CHASSI_TAMANHO_MINIMO;
-  const completo = Boolean(temCentro && veiculo.marca && chassiValido && !chassiDuplicado);
+  const completo = Boolean(veiculo.marca && chassiValido && !chassiDuplicado);
 
   const passosVisiveis = useMemo(() => {
-    const passos = ['centro'];
-    if (temCentro) passos.push('marca');
-    if (temCentro && veiculo.marca) passos.push('modelo', 'chassi');
-    if (temCentro && veiculo.marca && chassiValido) passos.push('opcionais');
+    const passos = ['marca'];
+    if (veiculo.marca) passos.push('modelo', 'chassi');
+    if (veiculo.marca && chassiValido) passos.push('opcionais');
     if (completo) passos.push('salvar');
     return passos;
-  }, [temCentro, veiculo.marca, chassiValido, completo]);
+  }, [veiculo.marca, chassiValido, completo]);
 
   const passosRef = useRef(new Map<string, HTMLElement>());
   const registrarPasso = (chave: string) => (el: HTMLElement | null) => {
@@ -100,19 +94,12 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
       .finally(() => setVerificandoChassi(false));
   }
 
-  function escolherCentro(c: Centro) {
-    onChange({ ...veiculo, centro: c, marca: null, modelo: null });
-    setFiltroModelo('');
-  }
   function escolherMarca(m: Marca) {
     onChange({ ...veiculo, marca: m, modelo: null });
     setFiltroModelo('');
   }
   function escolherModelo(m: Modelo) {
     onChange({ ...veiculo, modelo: m });
-  }
-  function escolherCor(c: Cor) {
-    onChange({ ...veiculo, cor: veiculo.cor?.id === c.id ? null : c });
   }
 
   function adicionarFotos(arquivos: FileList | null) {
@@ -133,51 +120,28 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
   return (
     <div className="wizard">
       <div className="wizard-marca">
-        <h1 className="wizard-marca-nome">
-          {usuario.centroDistribuicaoNome ?? 'Novo cadastro de veículo'}
-        </h1>
+        <h1 className="wizard-marca-nome">{usuario.nome}</h1>
         <p className="wizard-marca-sub">Preencha os dados para registrar o veículo</p>
       </div>
 
-      {escolheCentro && (
-        <section className="wizard-passo" ref={registrarPasso('centro')}>
-          <div className="guia-passo-cab">
-            <span className="guia-passo-num">{numero()}</span> CENTRO DE DISTRIBUIÇÃO
-          </div>
-          <div className="guia-chips">
-            {dados.centros.map((c) => (
-              <button
-                key={c.id}
-                className={`chip ${veiculo.centro?.id === c.id ? 'chip-ativo' : ''}`}
-                onClick={() => escolherCentro(c)}
-              >
-                {c.nome}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="wizard-passo" ref={registrarPasso('marca')}>
+        <div className="guia-passo-cab">
+          <span className="guia-passo-num">{numero()}</span> MARCA
+        </div>
+        <div className="guia-chips">
+          {dados.marcas.map((m) => (
+            <button
+              key={m.id}
+              className={`chip ${veiculo.marca?.id === m.id ? 'chip-ativo' : ''}`}
+              onClick={() => escolherMarca(m)}
+            >
+              {m.nome}
+            </button>
+          ))}
+        </div>
+      </section>
 
-      {temCentro && (
-        <section className="wizard-passo" ref={registrarPasso('marca')}>
-          <div className="guia-passo-cab">
-            <span className="guia-passo-num">{numero()}</span> MARCA
-          </div>
-          <div className="guia-chips">
-            {dados.marcas.map((m) => (
-              <button
-                key={m.id}
-                className={`chip ${veiculo.marca?.id === m.id ? 'chip-ativo' : ''}`}
-                onClick={() => escolherMarca(m)}
-              >
-                {m.nome}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {temCentro && veiculo.marca && (
+      {veiculo.marca && (
         <section className="wizard-passo" ref={registrarPasso('modelo')}>
           <div className="guia-passo-cab">
             <span className="guia-passo-num">{numero()}</span> MODELO
@@ -214,7 +178,7 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
         </section>
       )}
 
-      {temCentro && veiculo.marca && (
+      {veiculo.marca && (
         <section className="wizard-passo" ref={registrarPasso('chassi')}>
           <div className="guia-passo-cab">
             <span className="guia-passo-num">{numero()}</span> CHASSI
@@ -243,26 +207,9 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
         </section>
       )}
 
-      {temCentro && veiculo.marca && chassiValido && (
+      {veiculo.marca && chassiValido && (
         <section className="wizard-passo" ref={registrarPasso('opcionais')}>
           <div className="guia-passo-cab">
-            <span className="guia-passo-num">{numero()}</span> COR
-          </div>
-          <div className="guia-cores">
-            {dados.cores.map((c) => (
-              <button
-                key={c.id}
-                className={`cor ${veiculo.cor?.id === c.id ? 'cor-ativa' : ''}`}
-                onClick={() => escolherCor(c)}
-                title={c.nome}
-              >
-                <span className="cor-bola" style={{ background: c.hex }} />
-                <span className="cor-nome">{c.nome}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="guia-passo-cab veiculo-secao">
             <span className="guia-passo-num">{numero()}</span> FOTOS
           </div>
           <label className="btn btn-secundario veiculo-upload-btn">

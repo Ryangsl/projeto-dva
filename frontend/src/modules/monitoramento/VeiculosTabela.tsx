@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
-import { buscarVeiculoPorId, excluirVeiculo, listarVeiculos } from '../../services/veiculos.service';
+import {
+  buscarVeiculoPorId,
+  excluirVeiculo,
+  listarMeusRegistros,
+  listarVeiculos,
+} from '../../services/veiculos.service';
 import type { VeiculoDetalhe, VeiculoResumo } from '../veiculos/veiculos.types';
 import { VeiculoDetalheModal } from './VeiculoDetalheModal';
 
@@ -16,11 +21,17 @@ function mensagemDeErro(err: unknown, fallback: string): string {
   return msg ?? fallback;
 }
 
+interface Props {
+  // "Meus Registros": mesma tabela, escopada ao usuário logado — omite a
+  // coluna Usuário (redundante, é sempre "você") e usa o endpoint próprio.
+  apenasMeus?: boolean;
+}
+
 // Primeira tabela HTML "de verdade" do projeto (o resto da interface usa
-// listas em card) — os dados aqui (chassi/marca/modelo/centro/destino/data/
-// operador) são genuinamente tabulares, então o formato pedido no documento
-// do MVP é reproduzido literalmente.
-export function VeiculosTabela() {
+// listas em card) — os dados aqui (chassi/marca/modelo/destino/data/operador)
+// são genuinamente tabulares, então o formato pedido no documento do MVP é
+// reproduzido literalmente.
+export function VeiculosTabela({ apenasMeus = false }: Props) {
   const { usuario } = useAuth();
   const souAdmin = usuario?.perfil === 'admin';
 
@@ -42,7 +53,8 @@ export function VeiculosTabela() {
 
   const carregar = useCallback(() => {
     setCarregando(true);
-    return listarVeiculos({ chassi: chassiBusca || undefined, pagina, limite: LIMITE_PAGINA })
+    const buscar = apenasMeus ? listarMeusRegistros : listarVeiculos;
+    return buscar({ chassi: chassiBusca || undefined, pagina, limite: LIMITE_PAGINA })
       .then((res) => {
         setVeiculos(res.veiculos);
         setTotal(res.total);
@@ -50,7 +62,7 @@ export function VeiculosTabela() {
       })
       .catch(() => setErro('Não foi possível carregar os veículos.'))
       .finally(() => setCarregando(false));
-  }, [chassiBusca, pagina]);
+  }, [apenasMeus, chassiBusca, pagina]);
 
   useEffect(() => {
     let cancelado = false;
@@ -109,11 +121,9 @@ export function VeiculosTabela() {
               <th>Protocolo</th>
               <th>Marca</th>
               <th>Modelo</th>
-              <th>Cor</th>
-              <th>Centro</th>
               <th>Destino</th>
               <th>Data</th>
-              <th>Usuário</th>
+              {!apenasMeus && <th>Usuário</th>}
               <th />
             </tr>
           </thead>
@@ -124,11 +134,9 @@ export function VeiculosTabela() {
                 <td>{v.protocolo}</td>
                 <td>{v.marcaNome}</td>
                 <td>{v.modeloNome ?? '—'}</td>
-                <td>{v.corNome ?? '—'}</td>
-                <td>{v.centroNome}</td>
                 <td>{v.destino ?? '—'}</td>
                 <td>{formatarData(v.criadoEm)}</td>
-                <td>{v.usuarioNome}</td>
+                {!apenasMeus && <td>{v.usuarioNome}</td>}
                 <td>
                   <div className="veiculos-tabela-acoes">
                     <button className="btn btn-secundario" onClick={() => abrirDetalhe(v.id)}>

@@ -11,32 +11,21 @@
 -- feita em `modules/veiculos/veiculos.service.ts`, via consulta cross-database
 -- qualificada (`<DB_VEHICLES_NAME>.vehicle_brands`), a cada cadastro.
 
--- `centro_distribuicao_id` restringe o Operador ao centro de onde ele cadastra
--- veículos (NULL = Admin, sem restrição, vê/cadastra para qualquer centro).
 -- `senha_definida` = 0 quando a senha ainda é a temporária semeada/resetada: o
 -- usuário é obrigado a trocá-la no primeiro acesso antes de usar o sistema
--- (POST /auth/senha). `perfil`: 'admin' (gerencia usuários, centros e o
--- monitoramento) e 'operador' (cadastra veículos do seu centro).
-CREATE TABLE IF NOT EXISTS centros_distribuicao (
-  id        INT AUTO_INCREMENT PRIMARY KEY,
-  nome      VARCHAR(120) NOT NULL UNIQUE,
-  ativo     TINYINT(1) NOT NULL DEFAULT 1,
-  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
+-- (POST /auth/senha). `perfil`: 'admin' (gerencia usuários e o monitoramento)
+-- e 'operador' (cadastra veículos). Sem eixo de organização por centro/unidade
+-- neste MVP — qualquer Operador cadastra para qualquer destino.
 CREATE TABLE IF NOT EXISTS usuarios (
-  id                     INT AUTO_INCREMENT PRIMARY KEY,
-  nome                   VARCHAR(120) NOT NULL,
-  email                  VARCHAR(160) NOT NULL UNIQUE,
-  senha_hash             VARCHAR(255) NOT NULL,
-  perfil                 ENUM('operador', 'admin') NOT NULL DEFAULT 'operador',
-  centro_distribuicao_id INT NULL,
-  ultimo_login           DATETIME,
-  senha_definida         TINYINT(1) NOT NULL DEFAULT 0,
-  ativo                  TINYINT(1) NOT NULL DEFAULT 1,
-  created_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_usuarios_centro FOREIGN KEY (centro_distribuicao_id)
-    REFERENCES centros_distribuicao(id) ON DELETE SET NULL
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  nome           VARCHAR(120) NOT NULL,
+  email          VARCHAR(160) NOT NULL UNIQUE,
+  senha_hash     VARCHAR(255) NOT NULL,
+  perfil         ENUM('operador', 'admin') NOT NULL DEFAULT 'operador',
+  ultimo_login   DATETIME,
+  senha_definida TINYINT(1) NOT NULL DEFAULT 0,
+  ativo          TINYINT(1) NOT NULL DEFAULT 1,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Sessões: autoridade de sessão (o `sid` do JWT aponta para esta linha e o
@@ -66,47 +55,32 @@ CREATE TABLE IF NOT EXISTS reset_senha_log (
   CONSTRAINT fk_reset_executor FOREIGN KEY (executado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Cores disponíveis para o veículo (catálogo próprio do DVA, sem o texto de
--- venda por cor que existia no Guia — sem uso aqui).
-CREATE TABLE IF NOT EXISTS cores (
-  id    INT AUTO_INCREMENT PRIMARY KEY,
-  nome  VARCHAR(40) NOT NULL UNIQUE,
-  hex   VARCHAR(7) NOT NULL DEFAULT '#cccccc',
-  ordem INT NOT NULL DEFAULT 0,
-  ativo TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- Cadastro central do DVA. `chassi` é o identificador único do veículo — não
--- permite dois cadastros para o mesmo veículo, de nenhum centro (é o que ele
--- sai de lá para a concessionária: o mesmo chassi não pode voltar a entrar).
+-- permite dois cadastros para o mesmo veículo (é o que ele sai de lá para a
+-- concessionária: o mesmo chassi não pode voltar a entrar).
 -- `protocolo` é gerado no servidor a cada cadastro (AAAA + MMDD + 4
 -- caracteres aleatórios, ex. 20260810X7K2) — um recibo curto e único da
 -- operação, devolvido ao operador na hora e reexibido no monitoramento; é
 -- gerado pelo backend, nunca aceito do cliente (ver veiculos.service.ts).
 -- `marca_id`/`modelo_id` referenciam vehicle_brands/vehicle_models do banco
 -- ANTIGO (painel_procar), sem FK (cross-database) — ver nota no topo do
--- arquivo. `modelo_id`/`cor_id` são opcionais: o cadastro não pode travar se a
--- marca escolhida tiver pouca cobertura de modelos na base FIPE.
+-- arquivo. `modelo_id` é opcional: o cadastro não pode travar se a marca
+-- escolhida tiver pouca cobertura de modelos na base FIPE.
 CREATE TABLE IF NOT EXISTS veiculos (
-  id                     BIGINT AUTO_INCREMENT PRIMARY KEY,
-  chassi                 VARCHAR(32) NOT NULL,
-  protocolo              VARCHAR(12) NOT NULL,
-  marca_id               INT NOT NULL,
-  modelo_id              INT NULL,
-  cor_id                 INT NULL,
-  centro_distribuicao_id INT NOT NULL,
-  destino                VARCHAR(160) NULL,
-  observacoes            TEXT NULL,
-  video_path             VARCHAR(255) NULL,
-  usuario_id             INT NOT NULL,
-  criado_em              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uq_veiculos_chassi  UNIQUE (chassi),
-  CONSTRAINT uq_veiculos_protocolo UNIQUE (protocolo),
-  CONSTRAINT fk_veiculos_cor     FOREIGN KEY (cor_id)    REFERENCES cores(id) ON DELETE SET NULL,
-  CONSTRAINT fk_veiculos_centro  FOREIGN KEY (centro_distribuicao_id) REFERENCES centros_distribuicao(id),
+  id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+  chassi       VARCHAR(32) NOT NULL,
+  protocolo    VARCHAR(12) NOT NULL,
+  marca_id     INT NOT NULL,
+  modelo_id    INT NULL,
+  destino      VARCHAR(160) NULL,
+  observacoes  TEXT NULL,
+  video_path   VARCHAR(255) NULL,
+  usuario_id   INT NOT NULL,
+  criado_em    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_veiculos_chassi     UNIQUE (chassi),
+  CONSTRAINT uq_veiculos_protocolo  UNIQUE (protocolo),
   CONSTRAINT fk_veiculos_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
   INDEX idx_veiculos_criado (criado_em),
-  INDEX idx_veiculos_centro (centro_distribuicao_id),
   INDEX idx_veiculos_marca  (marca_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

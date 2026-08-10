@@ -1,5 +1,5 @@
 // Cria o banco do DVA (se não existir), aplica o schema e semeia os dados
-// iniciais (admin, centros de distribuição, operadores de exemplo, cores).
+// iniciais (admin + operadores de exemplo).
 // O banco antigo do Guia PROCAR NÃO é tocado por este script.
 // Uso: npm run db:setup
 import { readFile } from 'node:fs/promises';
@@ -56,6 +56,34 @@ async function garantirIndice(
   return false;
 }
 
+// Remove uma coluna (e qualquer FK que aponte a partir dela) se ela ainda
+// existir — migração de bancos que já tinham `cor_id`/`centro_distribuicao_id`
+// de uma versão anterior do MVP (Cor e Centro de Distribuição foram removidos
+// do produto). A FK precisa sair antes da coluna, senão o MySQL recusa o DROP.
+async function removerColunaSeExistir(
+  conn: mysql.Connection,
+  tabela: string,
+  coluna: string,
+): Promise<void> {
+  const [rows] = await conn.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = ? AND column_name = ?`,
+    [env.db.database, tabela, coluna],
+  );
+  if ((rows as unknown[]).length === 0) return;
+
+  const [fks] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT DISTINCT CONSTRAINT_NAME AS nome FROM information_schema.key_column_usage
+     WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL`,
+    [env.db.database, tabela, coluna],
+  );
+  for (const fk of fks as { nome: string }[]) {
+    await conn.query(`ALTER TABLE \`${tabela}\` DROP FOREIGN KEY \`${fk.nome}\``);
+  }
+  await conn.query(`ALTER TABLE \`${tabela}\` DROP COLUMN \`${coluna}\``);
+  console.log(`✔ Coluna ${tabela}.${coluna} removida (recurso descontinuado).`);
+}
+
 // Veículos cadastrados antes do protocolo existir (bancos de desenvolvimento
 // já em uso) precisam de um valor de backfill único antes da coluna virar
 // NOT NULL + UNIQUE. Volume é sempre pequeno (dados de teste), então um
@@ -86,25 +114,11 @@ function isDuplicateEntry(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ER_DUP_ENTRY';
 }
 
-// Cores semeadas — catálogo básico, sem o texto de venda que existia no Guia.
-const CORES_SEED: Array<[nome: string, hex: string, ordem: number]> = [
-  ['Preto', '#1a1a1a', 1],
-  ['Branco', '#f5f5f5', 2],
-  ['Prata', '#c7c9cc', 3],
-  ['Cinza', '#6b6f76', 4],
-  ['Vermelho', '#b0201f', 5],
-  ['Azul', '#1f4fb0', 6],
-  ['Verde', '#1f7a3f', 7],
-  ['Amarelo', '#e0b400', 8],
-];
-
-// Um centro de distribuição + um operador por usuário de exemplo pedido pelo
-// cliente. Nomes de centro são PLACEHOLDER (sem correspondência com praças
-// reais) — editáveis depois pela tela /centros.
-const OPERADORES_SEED: Array<{ centro: string; nome: string; email: string }> = [
-  { centro: 'Centro de Distribuição Norte', nome: 'Luciano', email: 'teste1@teste.com' },
-  { centro: 'Centro de Distribuição Sul', nome: 'Claudinei', email: 'teste2@teste.com' },
-  { centro: 'Centro de Distribuição Leste', nome: 'Bruno', email: 'teste3@teste.com' },
+// Usuários de exemplo pedidos pelo cliente.
+const OPERADORES_SEED: Array<{ nome: string; email: string }> = [
+  { nome: 'Luciano', email: 'teste1@teste.com' },
+  { nome: 'Claudinei', email: 'teste2@teste.com' },
+  { nome: 'Bruno', email: 'teste3@teste.com' },
 ];
 
 // Senha inicial do Admin. Em produção é OBRIGATÓRIO fornecê-la pelo ambiente —
@@ -152,6 +166,14 @@ async function run(): Promise<void> {
   }
   await garantirIndice(root, 'veiculos', 'uq_veiculos_protocolo', 'UNIQUE KEY uq_veiculos_protocolo (protocolo)');
 
+  // Migração: Cor e Centro de Distribuição saíram do produto (não fazem
+  // sentido para o fluxo do DVA) — bancos de desenvolvimento que já tinham
+  // essas colunas/tabelas de uma versão anterior são limpos aqui.
+  await removerColunaSeExistir(root, 'veiculos', 'cor_id');
+  await removerColunaSeExistir(root, 'veiculos', 'centro_distribuicao_id');
+  await removerColunaSeExistir(root, 'usuarios', 'centro_distribuicao_id');
+  await root.query('DROP TABLE IF EXISTS cores, centros_distribuicao');
+
   // Seed: usuário Admin. Nasce com senha_definida = 0, como qualquer outro
   // perfil: o primeiro acesso obriga a definir uma senha própria.
   const emailAdmin = 'admin@dva.com.br';
@@ -172,36 +194,23 @@ async function run(): Promise<void> {
     console.log('• Usuário admin já existe, seed ignorado.');
   }
 
-  // Seed: cores.
-  for (const [nome, hex, ordem] of CORES_SEED) {
-    await root.query('INSERT IGNORE INTO cores (nome, hex, ordem) VALUES (?, ?, ?)', [nome, hex, ordem]);
-  }
-  console.log(`✔ ${CORES_SEED.length} cores semeadas (idempotente).`);
-
-  // Seed: centros de distribuição + operadores de exemplo — material de
-  // DESENVOLVIMENTO/demonstração. Em produção não são criados: o Admin
-  // cadastra os operadores e centros pelas telas /usuarios e /centros.
+  // Seed: operadores de exemplo — material de DESENVOLVIMENTO/demonstração.
+  // Em produção não são criados: o Admin cadastra os operadores pela tela
+  // /usuarios, que já gera senha aleatória individual.
   if (env.isProd) {
-    console.log('• Centros e operadores de exemplo não são semeados em produção (crie-os em /usuarios e /centros).');
+    console.log('• Operadores de exemplo não são semeados em produção (crie-os em /usuarios).');
   } else {
-    for (const { centro, nome, email } of OPERADORES_SEED) {
-      await root.query('INSERT IGNORE INTO centros_distribuicao (nome) VALUES (?)', [centro]);
-      const [[centroRow]] = await root.query<mysql.RowDataPacket[]>(
-        'SELECT id FROM centros_distribuicao WHERE nome = ?',
-        [centro],
-      );
-      const centroId = centroRow.id as number;
-
+    for (const { nome, email } of OPERADORES_SEED) {
       const [existentes] = await root.query('SELECT id FROM usuarios WHERE email = ?', [email]);
       if ((existentes as unknown[]).length === 0) {
         // Senha ALEATÓRIA por conta (nunca um valor compartilhado) e
         // senha_definida = 0: o primeiro acesso obriga a trocá-la.
         const senhaTemp = gerarSenhaTemporaria();
         await root.query(
-          'INSERT INTO usuarios (nome, email, senha_hash, perfil, centro_distribuicao_id, senha_definida) VALUES (?, ?, ?, ?, ?, 0)',
-          [nome, email, await bcrypt.hash(senhaTemp, 12), 'operador', centroId],
+          'INSERT INTO usuarios (nome, email, senha_hash, perfil, senha_definida) VALUES (?, ?, ?, ?, 0)',
+          [nome, email, await bcrypt.hash(senhaTemp, 12), 'operador'],
         );
-        console.log(`✔ Operador criado: ${nome} <${email}> / ${senhaTemp} — ${centro}`);
+        console.log(`✔ Operador criado: ${nome} <${email}> / ${senhaTemp}`);
       }
     }
   }

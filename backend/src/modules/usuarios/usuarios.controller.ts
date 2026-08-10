@@ -18,23 +18,17 @@ function idDoParametro(req: Request): number {
 const criarSchema = z.object({
   nome: z.string().trim().min(2, 'Nome muito curto'),
   email: z.string().trim().email('E-mail inválido'),
-  centroDistribuicaoId: z.number().int().positive('Selecione um centro de distribuição'),
 });
 
 const atualizarSchema = z.object({
   nome: z.string().trim().min(2, 'Nome muito curto').optional(),
   email: z.string().trim().email('E-mail inválido').optional(),
   ativo: z.boolean().optional(),
-  centroDistribuicaoId: z.number().int().positive().optional(),
 });
 
 export async function listar(_req: Request, res: Response): Promise<void> {
   const usuarios = await usuariosService.listar();
   res.json({ usuarios });
-}
-
-export async function centros(_req: Request, res: Response): Promise<void> {
-  res.json({ centros: await usuariosService.centrosDisponiveis() });
 }
 
 export async function criar(req: Request, res: Response): Promise<void> {

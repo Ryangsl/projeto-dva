@@ -38,8 +38,6 @@ export async function criarVeiculo(dados: NovoVeiculo): Promise<VeiculoDetalhe> 
   form.append('chassi', dados.chassi);
   if (dados.marca) form.append('marcaId', String(dados.marca.id));
   if (dados.modelo) form.append('modeloId', String(dados.modelo.id));
-  if (dados.cor) form.append('corId', String(dados.cor.id));
-  if (dados.centro) form.append('centroDistribuicaoId', String(dados.centro.id));
   if (dados.destino.trim()) form.append('destino', dados.destino.trim());
   if (dados.observacoes.trim()) form.append('observacoes', dados.observacoes.trim());
   dados.fotos.forEach((foto) => form.append('fotos', foto));
@@ -52,7 +50,6 @@ export async function criarVeiculo(dados: NovoVeiculo): Promise<VeiculoDetalhe> 
 export interface FiltrosListagem {
   chassi?: string;
   marcaId?: number;
-  centroDistribuicaoId?: number;
   pagina?: number;
   limite?: number;
 }
@@ -66,6 +63,14 @@ export interface ListagemVeiculos {
 
 export async function listarVeiculos(filtros: FiltrosListagem): Promise<ListagemVeiculos> {
   const { data } = await api.get<ListagemVeiculos>('/veiculos', { params: filtros });
+  return data;
+}
+
+// "Meus Registros": mesma listagem, mas escopada ao usuário logado (Operador
+// ou Admin) — o backend nunca aceita o escopo do cliente, é sempre quem está
+// autenticado.
+export async function listarMeusRegistros(filtros: FiltrosListagem): Promise<ListagemVeiculos> {
+  const { data } = await api.get<ListagemVeiculos>('/veiculos/meus-registros', { params: filtros });
   return data;
 }
 

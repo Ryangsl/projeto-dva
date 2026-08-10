@@ -84,11 +84,11 @@ export function MonitoramentoPage() {
         titulo="Monitoramento"
         acoes={
           <>
+            <Link to="/meus-registros" className="app-topo-link">
+              Meus Registros
+            </Link>
             <Link to="/usuarios" className="app-topo-link">
               Usuários
-            </Link>
-            <Link to="/centros" className="app-topo-link">
-              Centros
             </Link>
             <Link to="/veiculos/novo" className="app-topo-link">
               ← Cadastrar veículo
@@ -127,10 +127,7 @@ export function MonitoramentoPage() {
               <GraficoVeiculosPorDia pontos={dash.serieDiaria} />
             </div>
 
-            <div className="dash-rankings">
-              <RankingCard titulo="Por centro de distribuição" itens={dash.porCentro} />
-              <RankingCard titulo="Por marca" itens={dash.porMarca} />
-            </div>
+            <RankingCard titulo="Por marca" itens={dash.porMarca} />
 
             <div className="card dash-card">
               <h2 className="guia-col-titulo">Veículos cadastrados</h2>

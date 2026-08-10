@@ -14,7 +14,6 @@ export interface DashboardVeiculos {
   totalVeiculos: number;
   veiculosHoje: number;
   veiculosPeriodo: number;
-  porCentro: ContagemPorGrupo[];
   porMarca: ContagemPorGrupo[];
   serieDiaria: PontoSerie[];
 }

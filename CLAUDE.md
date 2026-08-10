@@ -12,13 +12,15 @@ O histórico detalhado da fase "Guia PROCAR" (ADRs e changelog de 2026-07-02 a 2
 
 **O produto é um sistema de GERENCIAMENTO E DISTRIBUIÇÃO DE VEÍCULOS entre concessionárias do Grupo DVA — não é um CRM nem um guia de vendas.**
 
-Um **Operador**, num centro de distribuição, registra um veículo que será enviado a uma concessionária: informa marca, modelo, chassi, cor, anexa fotos e vídeo, escreve observações e indica o destino. O **Chassi é o identificador único do veículo** no sistema — não existem dois cadastros para o mesmo chassi.
+Um **Operador** registra um veículo que será enviado a uma concessionária: informa marca, modelo, chassi, anexa fotos e vídeo, escreve observações e indica o destino. O **Chassi é o identificador único do veículo** no sistema — não existem dois cadastros para o mesmo chassi. Cada cadastro gera automaticamente um **protocolo** (recibo curto da operação).
 
-O **Admin** acompanha tudo numa tela de **Monitoramento**: quantos veículos foram cadastrados (total, hoje, por período), a distribuição por centro e por marca, uma lista pesquisável por chassi e o detalhe completo de cada veículo (fotos + vídeo + dados). O Admin também gerencia os **Usuários** (operadores) e os **Centros de Distribuição**.
+O **Admin** acompanha tudo numa tela de **Monitoramento**: quantos veículos foram cadastrados (total, hoje, por período), a distribuição por marca, uma lista pesquisável por chassi e o detalhe completo de cada veículo (fotos + vídeo + dados). Tanto Operador quanto Admin têm uma tela de **Meus Registros** — histórico dos veículos que o próprio usuário cadastrou. O Admin também gerencia os **Usuários** (operadores).
 
 ### Personas
-- **Operador**: no centro de distribuição, cadastra veículos que serão enviados a uma concessionária. Vinculado a **um único** centro de distribuição (não escolhe — é o da própria conta).
-- **Admin**: gerencia usuários, centros de distribuição e acompanha o monitoramento de todos os veículos cadastrados, em qualquer centro. Único perfil administrativo do MVP.
+- **Operador**: cadastra veículos que serão enviados a uma concessionária. Sem vínculo com nenhuma unidade/centro — qualquer operador cadastra para qualquer destino.
+- **Admin**: gerencia usuários e acompanha o monitoramento de todos os veículos cadastrados. Único perfil administrativo do MVP.
+
+> ℹ️ O sistema já teve os conceitos de **Cor** e **Centro de Distribuição** (removidos em 2026-08-10 a pedido do cliente — ver §9/§10). Se algo neste documento parecer contraditório, o histórico do git é a fonte de verdade sobre quando cada coisa mudou.
 
 > ⚠️ **O que este sistema NÃO é:** não é um CRM, não tem pipeline comercial, não integra com WhatsApp, não tem geolocalização avançada, não usa armazenamento em nuvem. É um MVP focado em registrar e distribuir veículos com evidência fotográfica/em vídeo, de forma simples.
 
@@ -48,10 +50,10 @@ Diretrizes transversais:
 | # | Módulo | Status |
 |---|---|---|
 | — | Base: auth + esqueleto | ✅ Reaproveitado do projeto PROCAR |
-| ★ | **Cadastro de veículo (wizard) + upload de fotos/vídeo** | ✅ Feito |
-| ★ | **Gestão de Centros de Distribuição** | ✅ Feito |
+| ★ | **Cadastro de veículo (wizard) + upload de fotos/vídeo + protocolo automático** | ✅ Feito |
 | ★ | **Gerenciamento de usuários (Admin cria/edita/reseta senha de Operadores)** | ✅ Feito |
-| ★ | **Monitoramento: KPIs, gráfico por dia, distribuição por centro/marca, tabela + busca por chassi, detalhe com fotos/vídeo** | ✅ Feito |
+| ★ | **Monitoramento: KPIs, gráfico por dia, distribuição por marca, tabela + busca por chassi, detalhe com fotos/vídeo, exclusão (admin)** | ✅ Feito |
+| ★ | **Meus Registros: histórico dos próprios veículos cadastrados (Operador e Admin)** | ✅ Feito |
 | P2 | Melhorias de UX (validação de VIN real, notificações, status do envio) | ⏳ Fora do MVP |
 
 ## 5. Arquitetura
@@ -68,7 +70,6 @@ procar-dva/
 │   │   ├── modules/          # um diretório por domínio de negócio
 │   │   │   ├── auth/         # login/JWT (token.ts), primeiro acesso, heartbeat, throttle
 │   │   │   ├── usuarios/     # gerenciamento de operadores (admin) + reset de senha
-│   │   │   ├── centros/      # CRUD de centros de distribuição (admin)
 │   │   │   ├── veiculos/     # ★ cadastro de veículo + upload (multer) + catálogo marca/modelo
 │   │   │   │   ├── marcas-dva.ts   # lista fixa das 7 marcas do grupo
 │   │   │   │   └── upload.ts       # config do multer (disco local)
@@ -86,9 +87,8 @@ procar-dva/
 │   │   ├── modules/
 │   │   │   ├── auth/         # Login, PrimeiroAcesso, AlterarSenha (sem mudança de fluxo)
 │   │   │   ├── usuarios/     # gestão de operadores (admin)
-│   │   │   ├── centros/      # ★ gestão de centros de distribuição (admin)
 │   │   │   ├── veiculos/     # ★ wizard de cadastro + confirmação
-│   │   │   └── monitoramento/# ★ dashboard + tabela + detalhe do veículo
+│   │   │   └── monitoramento/# ★ dashboard + tabela + detalhe + Meus Registros
 │   │   ├── services/         # api client (axios) + services por módulo
 │   │   ├── contexts/         # AuthContext, ThemeContext
 │   │   ├── styles/           # global.css (tokens de tema) + ui.css
@@ -110,12 +110,11 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 ## 6. Domínio de Dados
 
 ### Banco novo do DVA (`dva_veiculos`, `schema.sql` + `setup.ts`)
-- **usuarios** — `id, nome, email (único), senha_hash, perfil ('operador'|'admin'), centro_distribuicao_id (FK, NULL = admin sem restrição), ultimo_login, senha_definida, ativo, created_at`.
-- **centros_distribuicao** — `id, nome (único), ativo, criado_em`. Novo eixo de organização — substitui o antigo `usuarios.marca` do Guia. Um Operador pertence a exatamente um centro; o Admin não tem restrição.
+- **usuarios** — `id, nome, email (único), senha_hash, perfil ('operador'|'admin'), ultimo_login, senha_definida, ativo, created_at`. Sem eixo de organização por centro/unidade (removido — ver §9/§10).
 - **sessoes**, **reset_senha_log** — infraestrutura de auth, reproduzida sem mudanças (ver §3 e o antigo CLAUDE.md via git log para o racional completo de cada campo).
-- **cores** — `id, nome (único), hex, ordem, ativo`. Catálogo simples, sem o texto de venda por cor que existia no Guia.
-- **veiculos** — `id, chassi (único, identificador do veículo), protocolo (único, AAAA+MMDD+4 caracteres aleatórios, ex. 20260810X7K2 — gerado no servidor a cada cadastro, nunca aceito do cliente), marca_id, modelo_id (NULL), cor_id (FK, NULL), centro_distribuicao_id (FK), destino, observacoes, video_path (NULL), usuario_id (FK), criado_em`. `marca_id`/`modelo_id` referenciam `vehicle_brands`/`vehicle_models` do banco **antigo** — sem `FOREIGN KEY` (impossível entre bancos diferentes no MySQL); a existência é validada no service a cada cadastro.
+- **veiculos** — `id, chassi (único, identificador do veículo), protocolo (único, AAAA+MMDD+4 caracteres aleatórios, ex. 20260810X7K2 — gerado no servidor a cada cadastro, nunca aceito do cliente), marca_id, modelo_id (NULL), destino, observacoes, video_path (NULL), usuario_id (FK), criado_em`. `marca_id`/`modelo_id` referenciam `vehicle_brands`/`vehicle_models` do banco **antigo** — sem `FOREIGN KEY` (impossível entre bancos diferentes no MySQL); a existência é validada no service a cada cadastro. Sem campo de cor (removido — ver §9/§10).
 - **veiculo_fotos** — `id, veiculo_id (FK CASCADE), caminho, ordem, criado_em`. Múltiplas fotos por veículo; o vídeo (no máximo um) fica só como `veiculos.video_path`.
+- **`db:setup` migra bancos antigos**: se as tabelas `cores`/`centros_distribuicao` ou as colunas `cor_id`/`centro_distribuicao_id` ainda existirem (de uma instalação anterior a 2026-08-10), o script remove FKs, colunas e tabelas automaticamente — ver `removerColunaSeExistir` em `setup.ts`.
 
 ### Banco antigo do PROCAR (`painel_procar`, intocado — só leitura via cross-database)
 - **vehicle_brands** / **vehicle_models** — catálogo de marca/modelo, importado da FIPE pelos scripts em `backend/src/database/import-fipe/` (herdados do projeto anterior, continuam apontando para esse banco). O DVA filtra esse catálogo pelas **7 marcas do grupo** (`Mercedes, Jeep, RAM, BYD, Dodge, Chrysler, Denza` — constante `MARCAS_DVA` em `modules/veiculos/marcas-dva.ts`), casadas por `LIKE` contra `vehicle_brands.name`.
@@ -124,16 +123,17 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 
 ## 7. Contrato da API
 
-- `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/senha`, `POST /api/auth/atividade` — sem mudança de contrato em relação ao projeto anterior, só o payload do usuário troca `marca`/`marcas` por `centroDistribuicaoId`/`centroDistribuicaoNome`.
-- `GET /api/veiculos/opcoes` — marcas do DVA (com modelos aninhados, via cross-database), cores ativas e centros ativos. Base do formulário de cadastro.
+- `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/senha`, `POST /api/auth/atividade` — sem mudança de contrato em relação ao projeto anterior, exceto que o payload do usuário não carrega mais nenhum campo de centro/unidade (removido).
+- `GET /api/veiculos/opcoes` — marcas do DVA (com modelos aninhados, via cross-database). Base do formulário de cadastro.
 - `GET /api/veiculos/chassi/:chassi` — pré-checagem de duplicidade (`{ existe: boolean }`), qualquer perfil autenticado.
-- `POST /api/veiculos` — cria o veículo. `multipart/form-data`: campos de texto (`chassi`, `marcaId`, `modeloId?`, `corId?`, `centroDistribuicaoId?` — só usado/obrigatório quando quem cadastra é Admin, Operador é sempre forçado ao próprio centro —, `destino?`, `observacoes?`) + `fotos[]` (até 8, imagem) + `video` (1, vídeo). Chassi duplicado → 400. Resposta inclui o `protocolo` gerado (recibo do cadastro, exibido na confirmação e reexibido no monitoramento).
-- `GET /api/veiculos` / `GET /api/veiculos/:id` — listagem paginada (filtros por chassi/marca/centro) e detalhe completo (fotos + vídeo). Só Admin.
+- `POST /api/veiculos` — cria o veículo. `multipart/form-data`: campos de texto (`chassi`, `marcaId`, `modeloId?`, `destino?`, `observacoes?`) + `fotos[]` (até 8, imagem) + `video` (1, vídeo). Chassi duplicado → 400. Resposta inclui o `protocolo` gerado (recibo do cadastro, exibido na confirmação e reexibido no monitoramento).
+- `GET /api/veiculos` — listagem paginada (filtros por chassi/marca), todos os veículos. Só Admin.
+- `GET /api/veiculos/meus-registros` — mesma listagem, mas sempre escopada ao usuário autenticado (nunca aceito do cliente) — qualquer perfil, é a base da tela **Meus Registros**.
+- `GET /api/veiculos/:id` — detalhe completo (fotos + vídeo). Qualquer perfil autenticado; Admin vê qualquer veículo, Operador só o que ele mesmo cadastrou (404 para o resto, sem confirmar que o id existe).
 - `DELETE /api/veiculos/:id` — exclusão definitiva (linha + fotos via FK CASCADE + arquivos físicos em disco, best-effort). Só Admin. O veículo já pode ter saído para a concessionária — existe para corrigir cadastro errado, não como fluxo comum.
 - `GET /api/uploads/:arquivo` — serve a mídia (fotos/vídeo), atrás de `authenticate` (GET, então CSRF não se aplica).
-- `GET /api/monitoramento/dashboard?dias=7|30|60` — total de veículos, cadastrados hoje, cadastrados no período, distribuição por centro, distribuição por marca, série diária. Só Admin.
-- `GET /api/centros`, `POST /api/centros`, `PUT /api/centros/:id` — CRUD de centros de distribuição (sem exclusão física — só `ativo`). Só Admin.
-- `GET /api/usuarios`, `GET /api/usuarios/centros-disponiveis`, `POST /api/usuarios`, `PUT /api/usuarios/:id`, `POST /api/usuarios/:id/resetar-senha`, `DELETE /api/usuarios/:id` — gerenciamento de Operadores. Só Admin (não existe mais o perfil Gestor).
+- `GET /api/monitoramento/dashboard?dias=7|30|60` — total de veículos, cadastrados hoje, cadastrados no período, distribuição por marca, série diária. Só Admin.
+- `GET /api/usuarios`, `POST /api/usuarios`, `PUT /api/usuarios/:id`, `POST /api/usuarios/:id/resetar-senha`, `DELETE /api/usuarios/:id` — gerenciamento de Operadores (sem campo de centro/unidade). Só Admin (não existe mais o perfil Gestor).
 
 > **Transversal a toda a API:** headers de segurança, corpo JSON limitado a 100 KB (uploads não passam pelo parser JSON), rate limit global por IP e rate limit por usuário nas rotas que geram credenciais.
 
@@ -160,6 +160,10 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 | 2026-08-10 | **Job de retenção de 60 dias removido** (não adaptado) | Existia para a antiga tabela `atendimentos` (log de auditoria de uso, descartável). `veiculos` é dado operacional permanente — não há equivalente a purgar |
 | 2026-08-10 | **`veiculos.protocolo`** (AAAA+MMDD+4 aleatórios, único, gerado no servidor a cada cadastro) além do chassi | Pedido explícito do cliente: um recibo curto da operação, devolvido na hora ao operador. Chassi continua sendo o identificador único do veículo (já era); protocolo é um identificador do **evento de cadastro**, não do veículo em si — retry silencioso em caso de colisão (gerado pelo sistema, nunca some erro ao usuário por isso) |
 | 2026-08-10 | **Exclusão de veículo (`DELETE /api/veiculos/:id`), restrita ao Admin** — remove também os arquivos físicos (fotos/vídeo) do disco, best-effort | Pedido explícito do cliente. Mesmo padrão de confirmação em modal próprio (não `window.confirm`) já usado em Usuários; sem exclusão física em cascata sem limpeza de arquivo, o `backend/uploads/` acumularia mídia órfã indefinidamente |
+| 2026-08-10 | **Cor removida do produto** (campo do cadastro, tabela `cores`, coluna `veiculos.cor_id`) | Pedido explícito do cliente: "será irrelevante para esse sistema". `db:setup` remove a coluna/tabela automaticamente em bancos que já as tinham |
+| 2026-08-10 | **Centro de Distribuição removido do produto inteiro** (campo do cadastro, tabela `centros_distribuicao`, `usuarios.centro_distribuicao_id`, tela `/centros`, escopo do Operador) — reverte a decisão de "ganhou tela de gestão própria" tomada mais cedo no mesmo dia | Pedido explícito do cliente: "não faz sentido ter para esse sistema". Operador deixou de ter qualquer vínculo territorial — cadastra para qualquer destino. `db:setup` remove FKs/colunas/tabela automaticamente em bancos que já as tinham |
+| 2026-08-10 | **Cabeçalho do wizard de cadastro passou a mostrar o nome do usuário logado**, no lugar do nome do centro (que deixou de existir) | Pedido explícito do cliente ("o item número 1 pode ser apenas o nome do usuário cadastrado") |
+| 2026-08-10 | **Nova tela "Meus Registros"** (`/meus-registros`, `GET /api/veiculos/meus-registros`) — histórico dos veículos cadastrados pelo próprio usuário logado, para Operador **e** Admin | Pedido explícito do cliente. Reaproveita `VeiculosTabela`/`VeiculoDetalheModal` já existentes via uma prop (`apenasMeus`), em vez de duplicar a tela; o escopo por usuário é sempre imposto pelo backend a partir do token, nunca aceito do cliente |
 
 ## 10. Log de Evolução / Changelog
 
@@ -170,13 +174,18 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
   - **Frontend novo/reescrito**: `modules/veiculos` (wizard de cadastro reaproveitando o padrão de revelação progressiva do antigo `AtendimentoWizard`, com fotos/vídeo/observações/destino novos; tela de confirmação); `modules/centros` (CRUD reaproveitando o padrão de `UsuariosPage`); `modules/monitoramento` (KPIs, gráfico de veículos/dia em SVG inline, rankings por centro/marca, primeira tabela HTML "de verdade" do projeto, modal de detalhe com galeria de fotos + vídeo); `types/index.ts`, `services/auth.service.ts`, `services/usuarios.service.ts`, `UsuariosPage.tsx` adaptados para `centroDistribuicaoId`; `App.tsx` com as novas rotas (`/veiculos/novo` como tela principal, `/monitoramento`, `/centros`, `/usuarios` lazy-loaded para Admin); `AuthContext.tsx` perdeu a lógica de cache do guia (não existe mais cache offline — o cadastro depende de rede pelo upload); Logo aumentada nos pontos de uso (`AppHeader`, telas de login).
   - **Dependência nova**: `multer` (2.x) no backend — único pacote novo, mantendo a filosofia de leveza do projeto.
   - Backend (`npm run typecheck` / `npm run build`) e frontend (`npm run typecheck` / `npm run build`) OK.
-  - ⏳ **Pendências para produção**: rodar `npm run db:setup` contra um MySQL real (cria o banco `dva_veiculos` do zero); confirmar `GRANT SELECT` do usuário MySQL no banco antigo (`painel_procar`); validar a cobertura da FIPE para RAM/BYD/Denza (`npm run import:fipe:marcas` contra o banco antigo, se ainda não populado); testar upload de fotos/vídeo reais (tamanho grande e tipo inválido) contra os limites do `multer`; validação visual em tablet real (não foi possível neste ambiente); nomes reais para os centros de distribuição (hoje semeados como placeholders "Norte"/"Sul"/"Leste").
+  - ⏳ **Pendências para produção**: rodar `npm run db:setup` contra um MySQL real (cria o banco `dva_veiculos` do zero); confirmar `GRANT SELECT` do usuário MySQL no banco antigo (`painel_procar`); validar a cobertura da FIPE para RAM/BYD/Denza (`npm run import:fipe:marcas` contra o banco antigo, se ainda não populado); testar upload de fotos/vídeo reais (tamanho grande e tipo inválido) contra os limites do `multer`; validação visual em tablet real (não foi possível neste ambiente).
+
+- **2026-08-10** — **Ajustes pós-entrega: protocolo automático, exclusão de veículo, remoção de Cor e Centro de Distribuição, tela "Meus Registros".**
+  - **Backend**: `veiculos.protocolo` (coluna nova, único, gerado no servidor — `shared/protocolo.ts`) + migração em `setup.ts` para bancos que já tinham veículos sem protocolo; `DELETE /api/veiculos/:id` (admin, limpa arquivos físicos); `GET /api/veiculos/meus-registros` (qualquer perfil, escopado ao usuário do token) e `GET /api/veiculos/:id` liberado para qualquer perfil autenticado (Operador só enxerga o próprio veículo — 404 para o resto); removidos por completo: tabela `cores`, tabela `centros_distribuicao`, módulo `modules/centros/`, colunas `veiculos.cor_id`/`veiculos.centro_distribuicao_id`/`usuarios.centro_distribuicao_id` (com migração de limpeza em `setup.ts` via `removerColunaSeExistir`, que derruba FK + coluna + tabela em bancos que já tinham esses campos de uma versão anterior); `monitoramento.service.ts` perdeu a distribuição "por centro".
+  - **Frontend**: `modules/centros/` removido inteiramente; `VeiculoWizard` perdeu os passos "Centro de Distribuição" e "Cor" (fluxo agora é Marca → Modelo → Chassi → opcionais); cabeçalho do wizard mostra `usuario.nome`; nova tela `modules/monitoramento/MeusRegistrosPage.tsx` (rota `/meus-registros`, link no `AppHeader` para todos os perfis); `VeiculosTabela` ganhou a prop `apenasMeus` (reaproveitada pelas duas telas, sem duplicar código); link "Minha senha" removido do `AppHeader` (rota `/minha-senha` continua existindo, só não é mais linkada); logos de marca removidos dos chips de seleção (cobertura incompleta — `BrandLogo`/`brand-paths.ts` continuam no projeto, só não estão em uso); avatar vazio removido das listas de Usuários/Centros.
+  - Correção de bug real (não relacionado às mudanças de escopo): CSS do `Modal` e de `ui.css` só carregava se o usuário já tivesse visitado `/usuarios` antes na mesma sessão (import por página, não global) — modal de detalhe do veículo abria sem estilo nenhum quando acessado direto via Monitoramento. Corrigido movendo `ui.css` para import único em `main.tsx` e o CSS do `Modal` para `components/Modal.css`, importado pelo próprio componente.
+  - Backend e frontend (`npm run typecheck` / `npm run build`) OK.
 
 ## 11. Próximos Passos
 
 1. ⏳ Rodar `npm run db:setup` no MySQL real (cria `dva_veiculos`) e confirmar que o usuário do banco tem `GRANT SELECT` em `painel_procar` também.
 2. ⏳ Validar a cobertura de modelos da FIPE para as 7 marcas do DVA no banco antigo; rodar `npm run import:fipe:marcas` se necessário.
-3. ⏳ Testar o fluxo fim a fim num tablet real: cadastro de veículo com fotos/vídeo grandes, monitoramento, gestão de centros/usuários.
-4. ⏳ Definir nomes reais dos centros de distribuição (hoje são placeholders) via `/centros`.
-5. ⏳ Revisar tetos de upload (15MB/foto, 200MB/vídeo, 8 fotos) — são suposições, ajustáveis em `backend/src/modules/veiculos/upload.ts`.
-6. ⏳ Deploy: revisar `DEPLOY.md`/`DEPLOY-RAPIDO.md`/`SECURITY-REVIEW.md`/`IMPORTACAO-FIPE.md` (herdados do projeto anterior) — ainda descrevem a arquitetura de um banco só; precisam de um passe para refletir os dois bancos na mesma instância.
+3. ⏳ Testar o fluxo fim a fim num tablet real: cadastro de veículo com fotos/vídeo grandes, monitoramento, gestão de usuários, Meus Registros.
+4. ⏳ Revisar tetos de upload (15MB/foto, 200MB/vídeo, 8 fotos) — são suposições, ajustáveis em `backend/src/modules/veiculos/upload.ts`.
+5. ⏳ Deploy: revisar `DEPLOY.md`/`DEPLOY-RAPIDO.md`/`SECURITY-REVIEW.md`/`IMPORTACAO-FIPE.md` (herdados do projeto anterior) — ainda descrevem a arquitetura de um banco só; precisam de um passe para refletir os dois bancos na mesma instância.

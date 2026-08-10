@@ -98,16 +98,6 @@
   font-size: 0.85rem;
 }
 
-.dash-rankings {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-@media (min-width: 700px) {
-  .dash-rankings {
-    grid-template-columns: 1fr 1fr;
-  }
-}
 .ranking {
   list-style: none;
   display: grid;

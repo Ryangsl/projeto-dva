@@ -6,15 +6,15 @@ import { PrimeiroAcessoPage } from './modules/auth/PrimeiroAcessoPage';
 import { AlterarSenhaPage } from './modules/auth/AlterarSenhaPage';
 import { VeiculoPage } from './modules/veiculos/VeiculoPage';
 
-// Telas exclusivas do Admin em chunks separados: o OPERADOR — que é a maioria
-// dos acessos e trabalha num tablet com internet ruim — nunca as abre, então
-// não deve pagar o download delas. Login e cadastro de veículo continuam no
-// bundle principal, por serem o caminho crítico de todos os perfis.
+// Telas secundárias em chunks separados: o OPERADOR — que é a maioria dos
+// acessos e trabalha num tablet com internet ruim — não paga o download das
+// telas de gestão do Admin. Login e cadastro de veículo continuam no bundle
+// principal, por serem o caminho crítico de todos os perfis.
 const MonitoramentoPage = lazy(() =>
   import('./modules/monitoramento/MonitoramentoPage').then((m) => ({ default: m.MonitoramentoPage })),
 );
-const CentrosPage = lazy(() =>
-  import('./modules/centros/CentrosPage').then((m) => ({ default: m.CentrosPage })),
+const MeusRegistrosPage = lazy(() =>
+  import('./modules/monitoramento/MeusRegistrosPage').then((m) => ({ default: m.MeusRegistrosPage })),
 );
 const UsuariosPage = lazy(() =>
   import('./modules/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
@@ -29,23 +29,23 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         {/* Cadastro de veículo é a tela principal do produto */}
         <Route path="/veiculos/novo" element={<VeiculoPage />} />
-        {/* Monitoramento de veículos cadastrados (perfil admin) */}
+        {/* Histórico dos próprios registros — qualquer perfil */}
         <Route
-          path="/monitoramento"
+          path="/meus-registros"
           element={
             // fallback null (e não um spinner): o chunk vem da mesma origem e
             // resolve em milissegundos — um spinner só piscaria na tela.
             <Suspense fallback={null}>
-              <MonitoramentoPage />
+              <MeusRegistrosPage />
             </Suspense>
           }
         />
-        {/* Gestão de centros de distribuição (perfil admin) */}
+        {/* Monitoramento de veículos cadastrados (perfil admin) */}
         <Route
-          path="/centros"
+          path="/monitoramento"
           element={
             <Suspense fallback={null}>
-              <CentrosPage />
+              <MonitoramentoPage />
             </Suspense>
           }
         />

@@ -10,7 +10,6 @@ export const usuariosRoutes = Router();
 usuariosRoutes.use(authenticate, exigirSenhaDefinida, authorize('admin'));
 
 usuariosRoutes.get('/', asyncHandler(usuariosController.listar));
-usuariosRoutes.get('/centros-disponiveis', asyncHandler(usuariosController.centros));
 // Criação e reset geram credenciais: rate limit por usuário para que uma conta
 // administrativa comprometida não consiga criar contas ou resetar senhas em massa.
 usuariosRoutes.post('/', rateLimitSensivel, asyncHandler(usuariosController.criar));
