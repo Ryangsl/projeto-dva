@@ -17,12 +17,26 @@ const loginSchema = z.object({
 
 // Monta o payload do JWT a partir do usuário público + id da sessão do login.
 function payloadDoUsuario(u: authService.UsuarioPublico, sessaoId: number): TokenPayload {
-  return { sub: u.id, nome: u.nome, perfil: u.perfil, marca: u.marca, sd: u.senhaDefinida, sid: sessaoId };
+  return {
+    sub: u.id,
+    nome: u.nome,
+    perfil: u.perfil,
+    cdi: u.centroDistribuicaoId,
+    sd: u.senhaDefinida,
+    sid: sessaoId,
+  };
 }
 
 // Resposta enxuta do usuário para o front (o token vive só no cookie httpOnly).
 function usuarioPublico(u: authService.UsuarioPublico) {
-  return { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, marca: u.marca, marcas: u.marcas };
+  return {
+    id: u.id,
+    nome: u.nome,
+    email: u.email,
+    perfil: u.perfil,
+    centroDistribuicaoId: u.centroDistribuicaoId,
+    centroDistribuicaoNome: u.centroDistribuicaoNome,
+  };
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
@@ -56,7 +70,13 @@ export async function me(req: Request, res: Response): Promise<void> {
   // req.user é preenchido pelo middleware authenticate.
   const u = req.user!;
   res.json({
-    usuario: { id: u.sub, nome: u.nome, perfil: u.perfil, marca: u.marca, marcas: u.marcas },
+    usuario: {
+      id: u.sub,
+      nome: u.nome,
+      perfil: u.perfil,
+      centroDistribuicaoId: u.centroDistribuicaoId,
+      centroDistribuicaoNome: u.centroDistribuicaoNome,
+    },
     mustChangePassword: !u.senhaDefinida,
   });
 }
@@ -104,7 +124,7 @@ export async function atividade(req: Request, res: Response): Promise<void> {
     sub: u.sub,
     nome: u.nome,
     perfil: u.perfil,
-    marca: u.marca,
+    cdi: u.centroDistribuicaoId,
     sd: u.senhaDefinida,
     sid: u.sessaoId,
   });

@@ -4,13 +4,18 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { LoginPage } from './modules/auth/LoginPage';
 import { PrimeiroAcessoPage } from './modules/auth/PrimeiroAcessoPage';
 import { AlterarSenhaPage } from './modules/auth/AlterarSenhaPage';
-import { GuiaPage } from './modules/guia/GuiaPage';
+import { VeiculoPage } from './modules/veiculos/VeiculoPage';
 
-// Telas de Gestor/Admin em chunks separados: o CONSULTOR — que é a maioria dos
-// acessos e trabalha num tablet com internet ruim (§2 do CLAUDE.md) — nunca as
-// abre, então não deve pagar o download delas. Login e guia continuam no bundle
-// principal, porque são o caminho crítico do atendimento.
-const UsoPage = lazy(() => import('./modules/gestor/UsoPage').then((m) => ({ default: m.UsoPage })));
+// Telas exclusivas do Admin em chunks separados: o OPERADOR — que é a maioria
+// dos acessos e trabalha num tablet com internet ruim — nunca as abre, então
+// não deve pagar o download delas. Login e cadastro de veículo continuam no
+// bundle principal, por serem o caminho crítico de todos os perfis.
+const MonitoramentoPage = lazy(() =>
+  import('./modules/monitoramento/MonitoramentoPage').then((m) => ({ default: m.MonitoramentoPage })),
+);
+const CentrosPage = lazy(() =>
+  import('./modules/centros/CentrosPage').then((m) => ({ default: m.CentrosPage })),
+);
 const UsuariosPage = lazy(() =>
   import('./modules/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
 );
@@ -22,20 +27,29 @@ export function App() {
       {/* Primeiro acesso: obrigatório antes de liberar o sistema (guarda própria). */}
       <Route path="/primeiro-acesso" element={<PrimeiroAcessoPage />} />
       <Route element={<ProtectedRoute />}>
-        {/* Guia de atendimento é a tela principal do produto */}
-        <Route path="/guia" element={<GuiaPage />} />
-        {/* Monitoramento de uso por concessionária (perfil gestor/admin) */}
+        {/* Cadastro de veículo é a tela principal do produto */}
+        <Route path="/veiculos/novo" element={<VeiculoPage />} />
+        {/* Monitoramento de veículos cadastrados (perfil admin) */}
         <Route
-          path="/gestor/uso"
+          path="/monitoramento"
           element={
             // fallback null (e não um spinner): o chunk vem da mesma origem e
             // resolve em milissegundos — um spinner só piscaria na tela.
             <Suspense fallback={null}>
-              <UsoPage />
+              <MonitoramentoPage />
             </Suspense>
           }
         />
-        {/* Gerenciamento de usuários (perfil gestor/admin) */}
+        {/* Gestão de centros de distribuição (perfil admin) */}
+        <Route
+          path="/centros"
+          element={
+            <Suspense fallback={null}>
+              <CentrosPage />
+            </Suspense>
+          }
+        />
+        {/* Gerenciamento de usuários (perfil admin) */}
         <Route
           path="/usuarios"
           element={
@@ -47,7 +61,7 @@ export function App() {
         {/* Troca de senha voluntária (todos os perfis, inclusive Admin) */}
         <Route path="/minha-senha" element={<AlterarSenhaPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/guia" replace />} />
+      <Route path="*" element={<Navigate to="/veiculos/novo" replace />} />
     </Routes>
   );
 }

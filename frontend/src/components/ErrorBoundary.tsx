@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="login-wrap">
         <div className="card login-card" role="alert">
           <div className="login-logo">
-            <Logo height={56} />
+            <Logo height={64} />
           </div>
           <h1 className="primeiro-titulo">Algo deu errado</h1>
           <p className="login-tagline">

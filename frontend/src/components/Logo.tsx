@@ -10,7 +10,7 @@ interface LogoProps {
   className?: string;
 }
 
-export function Logo({ height = 40, className }: LogoProps) {
+export function Logo({ height = 48, className }: LogoProps) {
   return (
     <img
       src={LOGO_URL}

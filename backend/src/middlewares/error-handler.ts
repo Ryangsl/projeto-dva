@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { MulterError } from 'multer';
 import { ZodError } from 'zod';
 import { HttpError } from '../shared/http-error.js';
 
@@ -19,6 +20,14 @@ export function errorHandler(
 
   if (err instanceof HttpError) {
     res.status(err.statusCode).json({ error: err.message });
+    return;
+  }
+
+  // Upload de foto/vídeo do cadastro de veículo: arquivo grande demais, tipo
+  // inválido (via fileFilter, que já lança HttpError — tratado acima) ou
+  // excesso de arquivos. Sem isso, cairia no 500 genérico abaixo.
+  if (err instanceof MulterError) {
+    res.status(400).json({ error: `Falha no envio do arquivo: ${err.message}` });
     return;
   }
 

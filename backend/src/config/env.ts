@@ -2,8 +2,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Uma variável PRESENTE mas vazia (ex.: `JWT_SECRET=` no .env.example, deixado
+// assim de propósito para produção) precisa cair no fallback como se estivesse
+// ausente — `??` só cobre null/undefined, não string vazia, e sem esse
+// tratamento o valor resolvido vira '' silenciosamente (quebra em runtime, ex.
+// `jwt.sign` com segredo vazio, em vez de usar o padrão de desenvolvimento).
 function required(key: string, fallback?: string): string {
-  const value = process.env[key] ?? fallback;
+  const bruto = process.env[key];
+  const value = bruto && bruto.trim() !== '' ? bruto : fallback;
   if (value === undefined) {
     throw new Error(`Variável de ambiente obrigatória ausente: ${key}`);
   }
@@ -39,7 +45,13 @@ export const env = {
     port: Number(process.env.DB_PORT ?? 3306),
     user: required('DB_USER', 'root'),
     password: process.env.DB_PASSWORD ?? '',
-    database: required('DB_NAME', 'painel_procar'),
+    // Banco próprio do DVA — o banco antigo do Guia PROCAR não é tocado.
+    database: required('DB_NAME', 'dva_veiculos'),
+    // Banco antigo do PROCAR (mesma instância MySQL), usado só para consultas
+    // cross-database ao catálogo de veículos já importado da FIPE
+    // (vehicle_brands/vehicle_models) — ver `modules/veiculos/veiculos.service.ts`.
+    // O usuário do banco precisa ter GRANT SELECT também neste banco.
+    vehiclesDatabase: required('DB_VEHICLES_NAME', 'painel_procar'),
   },
   jwt: {
     secret: required('JWT_SECRET', JWT_SECRET_INSEGURO),

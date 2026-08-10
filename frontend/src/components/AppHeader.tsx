@@ -18,7 +18,7 @@ export function AppHeader({ titulo, acoes }: AppHeaderProps) {
   const { usuario, sair } = useAuth();
   const ref = useRef<HTMLElement>(null);
 
-  // Com muitos links (gestor/admin) a faixa pode quebrar em 2 linhas em telas
+  // Com muitos links (perfil admin) a faixa pode quebrar em 2 linhas em telas
   // estreitas (ver .app-topo-in/.app-topo-dir com flex-wrap). `--topo-altura`
   // era uma constante fixa (60px) — se o conteúdo quebrasse linha, a faixa
   // ficava mais alta que o espaço reservado pelas páginas (`padding-top`) e o
@@ -50,7 +50,7 @@ export function AppHeader({ titulo, acoes }: AppHeaderProps) {
     <header className="app-topo" ref={ref}>
       <div className="app-topo-in">
         <div className="app-topo-esq">
-          <Logo height={38} />
+          <Logo height={52} />
           <span className="app-topo-titulo">{titulo}</span>
         </div>
         <div className="app-topo-dir">

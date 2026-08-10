@@ -1,8 +1,8 @@
 {
-  "name": "painel-procar-backend",
+  "name": "dva-veiculos-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "API REST do Painel de Fichas de Veículos PROCAR (P1 MVP)",
+  "description": "API REST do Gerenciamento e Distribuição de Veículos Grupo DVA (MVP)",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
     "mysql2": "^3.11.0",
     "zod": "^3.23.8"
   },
@@ -30,6 +31,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4"

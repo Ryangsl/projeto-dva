@@ -1,9 +1,9 @@
 {
-  "name": "painel-procar-frontend",
+  "name": "dva-veiculos-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Frontend do Painel de Fichas de Veículos PROCAR (P1 MVP)",
+  "description": "Frontend do Gerenciamento e Distribuição de Veículos Grupo DVA (MVP)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

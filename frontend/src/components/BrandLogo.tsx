@@ -7,7 +7,18 @@ import { BRAND_ICONS } from './brand-paths';
 
 const ESCURO = '#12283f';
 
-// Casamento por trecho do nome (nomes FIPE têm prefixos/variações).
+// Casamento por trecho do nome (nomes FIPE têm prefixos/variações, ex.
+// 'VW - VolksWagen', 'GM - Chevrolet'; e variações de grafia como
+// 'Mercedes-Benz'/'MERCEDES-BENZ' — o toLowerCase() + includes() já resolve
+// isso, sem precisar de uma chave por variação). A ordem em CHAVES não
+// importa para os slugs abaixo (nenhum trecho é substring de outro).
+//
+// Cobertura das 7 marcas do Grupo DVA (ver modules/veiculos/marcas-dva.ts,
+// backend): Mercedes e Jeep têm logo oficial; RAM, Chrysler também (adicionado
+// em 2026-08-10). BYD e Denza NÃO têm ícone no Simple Icons — caem no
+// fallback de selo com inicial (ver iconeDaMarca abaixo), que é o
+// comportamento correto para uma marca sem path oficial disponível, em vez de
+// um desenho inventado.
 const CHAVES: [trecho: string, slug: string][] = [
   ['volkswagen', 'volkswagen'],
   ['vw', 'volkswagen'],
@@ -25,6 +36,12 @@ const CHAVES: [trecho: string, slug: string][] = [
   ['renault', 'renault'],
   ['nissan', 'nissan'],
   ['peugeot', 'peugeot'],
+  ['chrysler', 'chrysler'],
+  ['ram', 'ram'],
+  ['citroen', 'citroen'],
+  ['citroën', 'citroen'],
+  ['volvo', 'volvo'],
+  ['kia', 'kia'],
 ];
 
 function iconeDaMarca(marca: string): { path: string; cor: string } | null {

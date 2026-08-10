@@ -1,13 +1,12 @@
-export type Perfil = 'consultor' | 'gestor' | 'admin';
+export type Perfil = 'operador' | 'admin';
 
-// `marca` restringe o Consultor à sua concessionária (null = sem restrição).
-// `marcas` são as lojas administradas pelo Gestor (pode ser mais de uma;
-// vazio para Consultor/Admin).
+// `centroDistribuicaoId` restringe o Operador ao centro de onde ele cadastra
+// veículos (null = Admin, sem restrição).
 export interface Usuario {
   id: number;
   nome: string;
   email: string;
   perfil: Perfil;
-  marca: string | null;
-  marcas: string[];
+  centroDistribuicaoId: number | null;
+  centroDistribuicaoNome: string | null;
 }

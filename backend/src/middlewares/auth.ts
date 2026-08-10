@@ -4,16 +4,15 @@ import { forbidden, unauthorized } from '../shared/http-error.js';
 import { buscarUsuarioPorId, sessaoValida } from '../modules/auth/auth.service.js';
 import { verificarToken } from '../modules/auth/token.js';
 
-export type Perfil = 'consultor' | 'gestor' | 'admin';
+export type Perfil = 'operador' | 'admin';
 
 export interface AuthUser {
   sub: number;
   nome: string;
   perfil: Perfil;
-  // Concessionária do usuário (null = sem restrição de marca) — Consultor.
-  marca: string | null;
-  // Lojas administradas — só Gestor (pode ser mais de uma); vazio nos demais.
-  marcas: string[];
+  // Centro de distribuição do Operador (null = Admin, sem restrição).
+  centroDistribuicaoId: number | null;
+  centroDistribuicaoNome: string | null;
   // Primeiro acesso concluído? (false = ainda precisa trocar a senha temporária)
   senhaDefinida: boolean;
   // Id da sessão (do token) — usado pelo heartbeat e nos registros de uso.
@@ -66,8 +65,8 @@ export async function authenticate(
     sub: usuario.id,
     nome: usuario.nome,
     perfil: usuario.perfil,
-    marca: usuario.marca,
-    marcas: usuario.marcas,
+    centroDistribuicaoId: usuario.centroDistribuicaoId,
+    centroDistribuicaoNome: usuario.centroDistribuicaoNome,
     senhaDefinida: usuario.senhaDefinida,
     sessaoId: payload.sid,
   };
@@ -87,7 +86,7 @@ export function authorize(...perfis: Perfil[]) {
 // Bloqueia o uso normal do sistema enquanto o usuário não concluir o primeiro
 // acesso (troca da senha temporária). O front reconhece o `code` e redireciona
 // para a tela de definição de senha. Usar depois de authenticate, nos routers
-// que exigem senha já definida (guia, gestor, monitoramento).
+// que exigem senha já definida (veiculos, centros, monitoramento, usuarios).
 export function exigirSenhaDefinida(
   req: Request,
   res: Response,

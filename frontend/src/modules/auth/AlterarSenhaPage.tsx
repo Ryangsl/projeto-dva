@@ -127,7 +127,7 @@ export function AlterarSenhaPage() {
             type="button"
             className="btn btn-secundario btn-bloco"
             style={{ marginTop: '10px' }}
-            onClick={() => navigate('/guia')}
+            onClick={() => navigate('/veiculos/novo')}
           >
             Voltar
           </button>

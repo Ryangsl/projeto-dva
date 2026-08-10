@@ -2,10 +2,12 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import { env } from './config/env.js';
+import { authenticate } from './middlewares/auth.js';
 import { csrfProtection } from './middlewares/csrf.js';
 import { errorHandler } from './middlewares/error-handler.js';
 import { rateLimitGlobal } from './middlewares/rate-limit.js';
 import { securityHeaders } from './middlewares/security-headers.js';
+import { UPLOAD_DIR } from './modules/veiculos/upload.js';
 import { routes } from './routes/index.js';
 
 export const app = express();
@@ -31,6 +33,32 @@ app.use(rateLimitGlobal);
 
 // Proteção CSRF (double-submit) para requisições mutantes autenticadas.
 app.use(csrfProtection);
+
+// Fotos/vídeo dos veículos: atrás de autenticação (GET é método seguro, o
+// CSRF não se aplica) — mídia de veículo não pode ficar acessível por URL
+// adivinhável sem sessão válida.
+//
+// `securityHeaders` (acima) marca toda a API com Cross-Origin-Resource-Policy:
+// same-origin — correto para respostas JSON, que não devem ser embutidas por
+// nenhuma outra origem. Mas fotos/vídeo SÃO destinadas a ser embutidas via
+// <img>/<video src> a partir do próprio frontend, que em desenvolvimento roda
+// numa porta diferente (Vite :5173 vs API :3333) — mesmo "site" (mesmo host,
+// só a porta muda), mas origem diferente. Com `same-origin` o navegador
+// bloqueia esse carregamento (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin), mesmo a
+// requisição chegando com o cookie de sessão certo e passando pela
+// autenticação. `same-site` resolve exatamente esse caso — autoriza o próprio
+// frontend (em qualquer porta do mesmo domínio, dev ou produção, já que em
+// produção front+API ficam atrás do mesmo domínio via Nginx) sem abrir para
+// qualquer origem do mundo, que é o que `cross-origin` faria.
+app.use(
+  '/api/uploads',
+  authenticate,
+  (_req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+    next();
+  },
+  express.static(UPLOAD_DIR),
+);
 
 app.use('/api', routes);
 

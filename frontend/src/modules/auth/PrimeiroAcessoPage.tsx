@@ -30,7 +30,7 @@ export function PrimeiroAcessoPage() {
 
   // Sem sessão → login. Já definiu a senha → não precisa mais desta tela.
   if (!usuario) return <Navigate to="/login" replace />;
-  if (!precisaTrocarSenha) return <Navigate to="/guia" replace />;
+  if (!precisaTrocarSenha) return <Navigate to="/veiculos/novo" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -39,7 +39,7 @@ export function PrimeiroAcessoPage() {
     setEnviando(true);
     try {
       await definirSenha(senhaAtual, novaSenha);
-      navigate('/guia', { replace: true });
+      navigate('/veiculos/novo', { replace: true });
     } catch (err) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
@@ -55,7 +55,7 @@ export function PrimeiroAcessoPage() {
       <ThemeToggle className="tema-flutuante" />
       <form className="card login-card" onSubmit={handleSubmit}>
         <div className="login-logo">
-          <Logo height={56} />
+          <Logo height={68} />
         </div>
         <h1 className="primeiro-titulo">Bem-vindo, {usuario.nome.split(' ')[0]}!</h1>
         <p className="login-tagline">

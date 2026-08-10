@@ -198,8 +198,8 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px 10px;
-  /* Com muitos links (gestor/admin: Usuários, Monitoramento, Minha senha,
-     Sair...) uma linha só não cabe em telas estreitas. Em vez de estourar/
+  /* Com muitos links (perfil admin: Usuários, Centros, Monitoramento, Minha
+     senha, Sair...) uma linha só não cabe em telas estreitas. Em vez de estourar/
      encavalar os itens (nowrap sem espaço sobrando), as ações quebram para
      uma 2ª linha — a altura real da faixa (1 ou 2 linhas) é medida no
      AppHeader.tsx e escrita em --topo-altura, então o espaço reservado

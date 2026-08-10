@@ -1,0 +1,202 @@
+/* Monitoramento (Admin) — KPIs, gráfico de veículos/dia, rankings e tabela.
+   Mobile-first: a base é o layout de celular, min-width aumenta colunas. */
+
+.dash {
+  max-width: 1100px;
+  margin: 16px auto;
+  padding: 0 16px 32px;
+  display: grid;
+  gap: 18px;
+}
+.dash > * {
+  min-width: 0;
+}
+
+.dash-periodo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dash-periodo-btn {
+  padding: 8px 16px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border-forte);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.dash-periodo-btn-ativo {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--on-accent);
+}
+
+.dash-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 600px) {
+  .dash-kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kpi-rotulo {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.kpi-valor {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.dash-card {
+  padding: 18px;
+}
+
+/* ===== Gráfico de veículos/dia (SVG inline, sem lib) ===== */
+.grafico-wrap {
+  display: grid;
+  gap: 8px;
+}
+.grafico-svg {
+  width: 100%;
+  height: auto;
+  /* pan-y: o gráfico ocupa a largura toda; sem isso o dedo apoiado nele
+     travava a rolagem vertical da página no tablet (mesmo ajuste já validado
+     no antigo dashboard de uso). */
+  touch-action: pan-y;
+}
+.grafico-grade {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.grafico-eixo-texto {
+  fill: var(--text-muted);
+  font-size: 9px;
+}
+.grafico-barra {
+  fill: var(--accent-solid);
+}
+.grafico-barra-ativa {
+  fill: var(--accent);
+}
+.grafico-legenda {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.dash-rankings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 700px) {
+  .dash-rankings {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ranking {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.ranking-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+}
+.ranking-nome {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.ranking-total {
+  font-weight: 700;
+  color: var(--heading);
+  font-size: 0.9rem;
+}
+.ranking-barra-wrap {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.ranking-barra {
+  display: block;
+  height: 100%;
+  background: var(--accent-solid);
+  border-radius: 999px;
+}
+
+/* ===== Tabela de veículos (primeira tabela HTML do projeto) ===== */
+.veiculos-tabela-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+.veiculos-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 720px;
+}
+.veiculos-tabela th,
+.veiculos-tabela td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.veiculos-tabela th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ===== Detalhe do veículo (dentro do Modal) ===== */
+.veiculo-detalhe-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+.veiculo-detalhe-campos p {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.veiculo-detalhe-obs {
+  margin-bottom: 12px;
+}
+.veiculo-detalhe-secao {
+  margin-bottom: 14px;
+}
+.veiculo-detalhe-secao .guia-hint {
+  margin-top: 6px;
+}

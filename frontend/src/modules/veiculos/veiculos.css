@@ -1,0 +1,451 @@
+/* Cadastro de Veículo — layout das duas telas (wizard + confirmação) e
+   estilos compartilhados por Usuários/Centros/Monitoramento (chips, cores,
+   cartões). Todas as cores vêm dos tokens de tema (ver styles/global.css). */
+
+.guia {
+  min-height: 100vh;
+  min-height: 100dvh; /* considera as barras dinâmicas do celular (igual ao body) */
+  /* Reserva o espaço da faixa fixa (AppHeader) + respiro. A altura real é
+     medida em runtime pelo AppHeader.tsx (a faixa pode ter 1 ou 2 linhas). */
+  padding-top: calc(var(--topo-altura) + 10px);
+  padding-bottom: 34px;
+}
+
+.guia-erro,
+.guia-carregando {
+  max-width: 1100px;
+  margin: 16px auto;
+  padding: 14px 16px;
+  border-radius: var(--raio);
+}
+.guia-erro {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.guia-carregando {
+  color: var(--text-muted);
+}
+.guia-vazio {
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  padding: 20px;
+  box-shadow: var(--sombra);
+}
+
+/* ===== Elementos de seleção reutilizados (chips, cores, cabeçalhos) ===== */
+.guia-passo-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--heading);
+  margin-bottom: 12px;
+}
+.guia-passo-num {
+  background: var(--accent-solid);
+  color: var(--on-accent);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+.guia-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.guia-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.guia-busca-modelo {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 10px;
+  min-height: 42px;
+}
+.guia-chips-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.guia-col-titulo {
+  font-size: 1.05rem;
+  color: var(--heading);
+  margin: 8px 0 12px;
+}
+
+.chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 2px solid var(--border-forte);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 46px;
+  font-weight: 700;
+  color: var(--text);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip small {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+.chip-ativo {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--on-accent);
+}
+.chip-ativo:hover {
+  border-color: var(--accent-solid);
+}
+.chip-ativo small {
+  color: rgba(255, 255, 255, 0.85);
+}
+.chip-marca {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.guia-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cor {
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 58px;
+}
+.cor-bola {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border-forte);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+.cor-ativa .cor-bola {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px var(--accent);
+}
+.cor-nome {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.cor-ativa .cor-nome {
+  color: var(--accent);
+  font-weight: 700;
+}
+.cor-bola-mini {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+}
+
+/* ===== Wizard de cadastro (tela 1) ===== */
+.wizard {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  display: grid;
+  gap: 12px;
+}
+.wizard > * {
+  min-width: 0;
+}
+@media (min-width: 800px) {
+  .wizard {
+    padding: 28px 24px 56px;
+    gap: 16px;
+  }
+  .wizard-passo {
+    padding: 20px;
+  }
+}
+.wizard-marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 14px 0 6px;
+}
+.wizard-marca-nome {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--heading);
+}
+.wizard-marca-sub {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 34ch;
+  text-wrap: balance;
+}
+.wizard-passo {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 16px;
+  animation: wizard-entrar 0.25s ease-out;
+}
+@keyframes wizard-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wizard-cliente {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+.wizard-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  min-height: 52px;
+  font-size: 1rem;
+  color: var(--text);
+}
+.wizard-acao {
+  animation: wizard-entrar 0.25s ease-out;
+}
+.btn-gerar {
+  font-size: 1.1rem;
+  min-height: 56px;
+}
+
+/* Seção dentro do bloco de campos opcionais (cor/fotos/vídeo/observações/destino). */
+.veiculo-secao {
+  margin-top: 18px;
+}
+.veiculo-upload-btn {
+  display: inline-flex;
+  cursor: pointer;
+  width: fit-content;
+}
+.veiculo-textarea {
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.veiculo-fotos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.veiculo-foto-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.veiculo-foto-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Estado de falha ao carregar foto/vídeo (arquivo removido, erro de rede
+   depois da mídia já ter passado pela autenticação, etc.) — evita o ícone de
+   imagem quebrada nativo do navegador e o <video> preso em loading. */
+.veiculo-midia-indisponivel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 8px;
+}
+.veiculo-midia-indisponivel.veiculo-video-tag {
+  min-height: 120px;
+}
+.veiculo-foto-remover {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.veiculo-video-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.veiculo-video-tag {
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--raio);
+  background: #000;
+}
+
+.veiculo-bloco {
+  padding: 18px;
+}
+
+/* ===== Confirmação do cadastro (tela 2) ===== */
+.guia-resultado {
+  padding-top: 8px;
+}
+.atendimento-capa-wrap {
+  max-width: 1100px;
+  margin: 0 auto 8px;
+  padding: 0 16px;
+}
+.atendimento-capa {
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+.atendimento-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: none;
+}
+@media (max-width: 600px) {
+  .atendimento-acoes {
+    width: 100%;
+  }
+  .btn-novo {
+    width: 100%;
+  }
+}
+.atendimento-info {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.atendimento-rotulo {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.atendimento-cliente {
+  font-size: 1.45rem;
+  color: var(--heading);
+  margin: 2px 0 8px;
+  line-height: 1.2;
+}
+.atendimento-veiculo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+.atendimento-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.btn-novo {
+  flex: none;
+}
+
+.guia-conteudo {
+  max-width: 1100px;
+  margin: 8px auto;
+  padding: 0 16px;
+  display: grid;
+  gap: 20px;
+}
+.guia-conteudo > * {
+  min-width: 0;
+}
+
+.guia-rodape {
+  max-width: 1100px;
+  margin: 20px auto 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn-novo-rodape {
+  width: 100%;
+  min-height: 56px;
+}
+@media (min-width: 900px) {
+  .guia-rodape {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+  .btn-novo-rodape {
+    width: auto;
+  }
+}
+
+.roteiro-instrucao {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: justify;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}

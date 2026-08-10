@@ -4,18 +4,15 @@ import { pool } from '../../config/database.js';
 import { badRequest, forbidden, notFound } from '../../shared/http-error.js';
 import { gerarSenhaTemporaria } from '../../shared/senha.js';
 import { encerrarSessoesDoUsuario } from '../auth/auth.service.js';
-import { MARCAS_PRINCIPAIS } from '../guia/marcas-principais.js';
 
-// Perfis geridos por este módulo — contas 'admin' (TI) nunca são alvo aqui:
-// a senha do Admin é trocada manualmente via SQL, sem fluxo no app.
-export type PerfilGerenciavel = 'consultor' | 'gestor';
+// Perfil gerido por este módulo — contas 'admin' nunca são alvo aqui: só o
+// Admin administra usuários, e ele próprio não é gerido pelo app.
+export type PerfilGerenciavel = 'operador';
 
-// Quem está chamando: Admin enxerga tudo; Gestor só as próprias lojas (marcas
-// que administra — pode ser mais de uma).
+// Só o Admin gerencia usuários neste MVP (não existe mais o caso "gestor
+// administrando a própria loja").
 export interface Escopo {
   usuarioId: number;
-  perfil: 'admin' | 'gestor';
-  marcas: string[];
 }
 
 export interface UsuarioGerenciado {
@@ -23,10 +20,8 @@ export interface UsuarioGerenciado {
   nome: string;
   email: string;
   perfil: PerfilGerenciavel;
-  // Loja única do Consultor (null p/ gestor — ele usa `marcas`).
-  marca: string | null;
-  // Lojas administradas pelo Gestor (vazio p/ consultor).
-  marcas: string[];
+  centroDistribuicaoId: number | null;
+  centroDistribuicaoNome: string | null;
   ativo: boolean;
   senhaDefinida: boolean;
   ultimoLogin: string | null;
@@ -38,14 +33,19 @@ interface UsuarioRow extends RowDataPacket {
   nome: string;
   email: string;
   perfil: PerfilGerenciavel;
-  marca: string | null;
+  centro_distribuicao_id: number | null;
+  centro_distribuicao_nome: string | null;
   ativo: number;
   senha_definida: number;
   ultimo_login: string | null;
   created_at: string;
 }
 
-const CAMPOS = 'id, nome, email, perfil, marca, ativo, senha_definida, ultimo_login, created_at';
+const CAMPOS = `
+  u.id, u.nome, u.email, u.perfil, u.centro_distribuicao_id,
+  c.nome AS centro_distribuicao_nome, u.ativo, u.senha_definida, u.ultimo_login, u.created_at
+`;
+const FROM = 'FROM usuarios u LEFT JOIN centros_distribuicao c ON c.id = u.centro_distribuicao_id';
 
 function mapear(r: UsuarioRow): UsuarioGerenciado {
   return {
@@ -53,8 +53,8 @@ function mapear(r: UsuarioRow): UsuarioGerenciado {
     nome: r.nome,
     email: r.email,
     perfil: r.perfil,
-    marca: r.marca,
-    marcas: [],
+    centroDistribuicaoId: r.centro_distribuicao_id,
+    centroDistribuicaoNome: r.centro_distribuicao_nome,
     ativo: Boolean(r.ativo),
     senhaDefinida: Boolean(r.senha_definida),
     ultimoLogin: r.ultimo_login,
@@ -66,83 +66,33 @@ function isDuplicateEmail(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ER_DUP_ENTRY';
 }
 
-// Lojas administradas por um Gestor (tabela `usuario_marcas`).
-async function marcasDoGestor(usuarioId: number): Promise<string[]> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT marca FROM usuario_marcas WHERE usuario_id = ? ORDER BY marca',
-    [usuarioId],
-  );
-  return rows.map((r) => r.marca as string);
-}
-
-async function substituirMarcasDoGestor(usuarioId: number, marcas: string[]): Promise<void> {
-  await pool.query('DELETE FROM usuario_marcas WHERE usuario_id = ?', [usuarioId]);
-  if (marcas.length === 0) return;
-  await pool.query(
-    `INSERT INTO usuario_marcas (usuario_id, marca) VALUES ${marcas.map(() => '(?, ?)').join(', ')}`,
-    marcas.flatMap((m) => [usuarioId, m]),
-  );
-}
-
-// Anexa as lojas administradas às linhas de Gestor de uma lista (1 query extra
-// no total, não por linha) — Consultor não precisa (usa só `marca`).
-async function anexarMarcas(usuarios: UsuarioGerenciado[]): Promise<UsuarioGerenciado[]> {
-  const idsGestores = usuarios.filter((u) => u.perfil === 'gestor').map((u) => u.id);
-  if (idsGestores.length === 0) return usuarios;
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT usuario_id, marca FROM usuario_marcas WHERE usuario_id IN (?) ORDER BY marca',
-    [idsGestores],
-  );
-  const porUsuario = new Map<number, string[]>();
-  for (const r of rows as { usuario_id: number; marca: string }[]) {
-    const lista = porUsuario.get(r.usuario_id) ?? [];
-    lista.push(r.marca);
-    porUsuario.set(r.usuario_id, lista);
-  }
-  return usuarios.map((u) => (u.perfil === 'gestor' ? { ...u, marcas: porUsuario.get(u.id) ?? [] } : u));
-}
-
 // Reexportado para não quebrar quem já importava daqui (a implementação vive
 // em shared/senha.ts, para o db:setup poder usá-la sem carregar o pool).
 export { gerarSenhaTemporaria };
 
-export function marcasDisponiveis(): string[] {
-  return MARCAS_PRINCIPAIS;
+// Centros ativos disponíveis para vincular a um operador (mesma lista usada
+// pelo formulário de cadastro de veículo — ver modules/centros/).
+export async function centrosDisponiveis(): Promise<{ id: number; nome: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT id, nome FROM centros_distribuicao WHERE ativo = 1 ORDER BY nome',
+  );
+  return rows.map((r) => ({ id: r.id as number, nome: r.nome as string }));
 }
 
-// Lista os usuários geridos pelo escopo de quem pediu: Admin vê todos os
-// consultores/gestores (contas admin nunca aparecem); Gestor só os
-// consultores das lojas que administra.
-export async function listar(escopo: Escopo): Promise<UsuarioGerenciado[]> {
-  if (escopo.perfil === 'admin') {
-    const [rows] = await pool.query<UsuarioRow[]>(
-      `SELECT ${CAMPOS} FROM usuarios WHERE perfil IN ('consultor','gestor') ORDER BY nome`,
-    );
-    return anexarMarcas(rows.map(mapear));
-  }
-  if (escopo.marcas.length === 0) return [];
+// Lista todos os operadores (contas admin nunca aparecem aqui).
+export async function listar(): Promise<UsuarioGerenciado[]> {
   const [rows] = await pool.query<UsuarioRow[]>(
-    `SELECT ${CAMPOS} FROM usuarios WHERE perfil = 'consultor' AND marca IN (?) ORDER BY nome`,
-    [escopo.marcas],
+    `SELECT ${CAMPOS} ${FROM} WHERE u.perfil = 'operador' ORDER BY u.nome`,
   );
   return rows.map(mapear);
 }
 
-// Busca o usuário garantindo que está dentro do escopo de quem gerencia.
-// Fora do escopo do Gestor = tratado como inexistente (não confirma a
-// existência de contas de outra loja).
-async function buscarNoEscopo(id: number, escopo: Escopo): Promise<UsuarioRow> {
-  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} FROM usuarios WHERE id = ? LIMIT 1`, [id]);
+async function buscarOperador(id: number): Promise<UsuarioRow> {
+  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} ${FROM} WHERE u.id = ? LIMIT 1`, [id]);
   const usuario = rows[0];
   if (!usuario) throw notFound('Usuário não encontrado');
-  if (usuario.perfil !== 'consultor' && usuario.perfil !== 'gestor') {
-    throw forbidden('Contas de administrador (TI) não são gerenciadas por aqui');
-  }
-  if (
-    escopo.perfil === 'gestor' &&
-    (usuario.perfil !== 'consultor' || !usuario.marca || !escopo.marcas.includes(usuario.marca))
-  ) {
-    throw notFound('Usuário não encontrado');
+  if (usuario.perfil !== 'operador') {
+    throw forbidden('Contas de administrador não são gerenciadas por aqui');
   }
   return usuario;
 }
@@ -150,11 +100,7 @@ async function buscarNoEscopo(id: number, escopo: Escopo): Promise<UsuarioRow> {
 export interface DadosCriacao {
   nome: string;
   email: string;
-  perfil: PerfilGerenciavel;
-  // Consultor: uma loja. Gestor: uma ou mais (só Admin define; Gestor sempre
-  // cria Consultor e escolhe UMA das lojas que ele próprio administra).
-  marca?: string;
-  marcas?: string[];
+  centroDistribuicaoId: number;
 }
 
 export interface ResultadoCriacao {
@@ -162,41 +108,15 @@ export interface ResultadoCriacao {
   senhaTemporaria: string;
 }
 
-// Cria um novo Consultor/Gestor. Gestor só cria Consultor numa das lojas que
-// administra — perfil enviado pelo cliente é ignorado e forçado no servidor.
-export async function criar(dados: DadosCriacao, escopo: Escopo): Promise<ResultadoCriacao> {
-  let perfil: PerfilGerenciavel;
-  let marca: string | null = null;
-  let marcasGestor: string[] = [];
-
-  if (escopo.perfil === 'gestor') {
-    if (escopo.marcas.length === 0) throw forbidden('Sua conta de gestor não tem loja associada');
-    if (!dados.marca || !escopo.marcas.includes(dados.marca)) {
-      throw badRequest('Selecione uma das lojas que você administra');
-    }
-    perfil = 'consultor';
-    marca = dados.marca;
-  } else {
-    perfil = dados.perfil;
-    if (perfil === 'consultor') {
-      if (!dados.marca) throw badRequest('Selecione a loja (marca) do usuário');
-      marca = dados.marca;
-    } else {
-      if (!dados.marcas || dados.marcas.length === 0) {
-        throw badRequest('Selecione ao menos uma loja para o gestor');
-      }
-      marcasGestor = dados.marcas;
-    }
-  }
-
+export async function criar(dados: DadosCriacao): Promise<ResultadoCriacao> {
   const senhaTemporaria = gerarSenhaTemporaria();
   const senhaHash = await bcrypt.hash(senhaTemporaria, 10);
 
   let insertId: number;
   try {
     const [resultado] = await pool.query<ResultSetHeader>(
-      'INSERT INTO usuarios (nome, email, senha_hash, perfil, marca, senha_definida) VALUES (?, ?, ?, ?, ?, 0)',
-      [dados.nome, dados.email, senhaHash, perfil, marca],
+      'INSERT INTO usuarios (nome, email, senha_hash, perfil, centro_distribuicao_id, senha_definida) VALUES (?, ?, ?, ?, ?, 0)',
+      [dados.nome, dados.email, senhaHash, 'operador', dados.centroDistribuicaoId],
     );
     insertId = resultado.insertId;
   } catch (err) {
@@ -204,13 +124,7 @@ export async function criar(dados: DadosCriacao, escopo: Escopo): Promise<Result
     throw err;
   }
 
-  if (marcasGestor.length > 0) {
-    await substituirMarcasDoGestor(insertId, marcasGestor);
-  }
-
-  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} FROM usuarios WHERE id = ?`, [insertId]);
-  const usuario = mapear(rows[0]);
-  usuario.marcas = marcasGestor;
+  const usuario = mapear(await buscarOperador(insertId));
   return { usuario, senhaTemporaria };
 }
 
@@ -218,19 +132,11 @@ export interface DadosAtualizacao {
   nome?: string;
   email?: string;
   ativo?: boolean;
-  // Só efetivos quando quem chama é Admin — Gestor não altera permissões
-  // nem move um consultor para outra loja.
-  perfil?: PerfilGerenciavel;
-  marca?: string; // consultor
-  marcas?: string[]; // gestor
+  centroDistribuicaoId?: number;
 }
 
-export async function atualizar(
-  id: number,
-  dados: DadosAtualizacao,
-  escopo: Escopo,
-): Promise<UsuarioGerenciado> {
-  const atual = await buscarNoEscopo(id, escopo);
+export async function atualizar(id: number, dados: DadosAtualizacao): Promise<UsuarioGerenciado> {
+  await buscarOperador(id);
 
   const campos: string[] = [];
   const valores: unknown[] = [];
@@ -246,37 +152,9 @@ export async function atualizar(
     campos.push('ativo = ?');
     valores.push(dados.ativo ? 1 : 0);
   }
-
-  let perfilFinal: PerfilGerenciavel = atual.perfil;
-  if (escopo.perfil === 'admin') {
-    if (dados.perfil !== undefined) {
-      perfilFinal = dados.perfil;
-      campos.push('perfil = ?');
-      valores.push(dados.perfil);
-    }
-
-    if (perfilFinal === 'consultor') {
-      if (dados.marca !== undefined) {
-        campos.push('marca = ?');
-        valores.push(dados.marca);
-      }
-      // Deixou de ser gestor (ou já era consultor): sem lojas na tabela nova.
-      if (dados.perfil === 'consultor') {
-        await pool.query('DELETE FROM usuario_marcas WHERE usuario_id = ?', [id]);
-      }
-    } else {
-      const virandoGestor = dados.perfil === 'gestor';
-      if (virandoGestor) {
-        campos.push('marca = NULL');
-        if (!dados.marcas || dados.marcas.length === 0) {
-          throw badRequest('Selecione ao menos uma loja para o gestor');
-        }
-      }
-      if (dados.marcas !== undefined) {
-        if (dados.marcas.length === 0) throw badRequest('Selecione ao menos uma loja para o gestor');
-        await substituirMarcasDoGestor(id, dados.marcas);
-      }
-    }
+  if (dados.centroDistribuicaoId !== undefined) {
+    campos.push('centro_distribuicao_id = ?');
+    valores.push(dados.centroDistribuicaoId);
   }
 
   if (campos.length > 0) {
@@ -288,33 +166,20 @@ export async function atualizar(
     }
   }
 
-  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} FROM usuarios WHERE id = ?`, [id]);
-  const usuario = mapear(rows[0]);
-  if (usuario.perfil === 'gestor') usuario.marcas = await marcasDoGestor(id);
-  return usuario;
+  return mapear(await buscarOperador(id));
 }
 
-// Exclusão definitiva do usuário. Restrita ao Admin (a rota também exige o
-// perfil) — Gestor continua limitado a desativar, que é reversível.
-//
-// O que some junto, por FK ON DELETE CASCADE: `sessoes`, `atendimentos` e
-// `usuario_marcas` do usuário — ou seja, o histórico de uso dele sai das
-// métricas do dashboard retroativamente. O que NÃO some: `reset_senha_log`,
-// cujas FKs são SET NULL justamente para que excluir alguém não apague a
-// evidência de resets de senha (ver schema.sql).
+// Exclusão definitiva do usuário (restrita ao Admin — a rota também exige o
+// perfil). O que some junto, por FK ON DELETE CASCADE: `sessoes` do usuário —
+// o histórico de uso dele sai das métricas do monitoramento retroativamente.
+// O que NÃO some: `reset_senha_log` (SET NULL) nem os `veiculos` cadastrados
+// por ele (usuario_id não é FK CASCADE — o cadastro do veículo é permanente,
+// independente de quem o registrou continuar ativo no sistema).
 export async function excluir(id: number, escopo: Escopo): Promise<void> {
-  if (escopo.perfil !== 'admin') {
-    throw forbidden('Apenas o administrador (TI) pode excluir usuários');
-  }
   if (id === escopo.usuarioId) {
     throw badRequest('Você não pode excluir a própria conta');
   }
-  // Reusa o escopo: garante que o alvo existe e que NÃO é uma conta admin
-  // (contas de TI não são geridas por esta API).
-  await buscarNoEscopo(id, escopo);
-
-  // As sessões do alvo somem por cascata, e como o middleware valida a sessão
-  // a cada requisição, quem estiver logado nessa conta perde o acesso na hora.
+  await buscarOperador(id);
   await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
 }
 
@@ -330,7 +195,7 @@ export async function resetarSenha(id: number, escopo: Escopo): Promise<Resultad
   if (id === escopo.usuarioId) {
     throw badRequest('Para trocar sua própria senha, use a opção "Minha senha"');
   }
-  await buscarNoEscopo(id, escopo);
+  await buscarOperador(id);
 
   const senhaTemporaria = gerarSenhaTemporaria();
   const senhaHash = await bcrypt.hash(senhaTemporaria, 10);
@@ -344,8 +209,6 @@ export async function resetarSenha(id: number, escopo: Escopo): Promise<Resultad
     escopo.usuarioId,
   ]);
 
-  const [rows] = await pool.query<UsuarioRow[]>(`SELECT ${CAMPOS} FROM usuarios WHERE id = ?`, [id]);
-  const usuario = mapear(rows[0]);
-  if (usuario.perfil === 'gestor') usuario.marcas = await marcasDoGestor(id);
+  const usuario = mapear(await buscarOperador(id));
   return { usuario, senhaTemporaria };
 }

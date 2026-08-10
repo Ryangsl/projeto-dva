@@ -10,20 +10,28 @@ interface UsuarioRow extends RowDataPacket {
   email: string;
   senha_hash: string;
   perfil: Perfil;
-  marca: string | null;
+  centro_distribuicao_id: number | null;
+  centro_distribuicao_nome: string | null;
   senha_definida: number;
   ativo: number;
 }
 
-// `marca` restringe o usuário à sua concessionária (NULL = vê todas as marcas) —
-// só faz sentido para Consultor. Gestor administra uma ou mais lojas via `marcas`.
+const SELECT_USUARIO = `
+  SELECT u.id, u.nome, u.email, u.senha_hash, u.perfil, u.centro_distribuicao_id,
+         c.nome AS centro_distribuicao_nome, u.senha_definida, u.ativo
+    FROM usuarios u
+    LEFT JOIN centros_distribuicao c ON c.id = u.centro_distribuicao_id
+`;
+
+// `centroDistribuicaoId` restringe o Operador ao centro de onde ele cadastra
+// veículos (NULL = Admin, sem restrição).
 export interface UsuarioPublico {
   id: number;
   nome: string;
   email: string;
   perfil: Perfil;
-  marca: string | null;
-  marcas: string[];
+  centroDistribuicaoId: number | null;
+  centroDistribuicaoNome: string | null;
   senhaDefinida: boolean;
 }
 
@@ -32,15 +40,16 @@ export interface ResultadoLogin {
   sessaoId: number;
 }
 
-// Lojas administradas por um Gestor (tabela `usuario_marcas`, múltiplas por
-// design). Vazio para Consultor/Admin — eles não usam essa tabela.
-async function marcasDoUsuario(id: number, perfil: Perfil): Promise<string[]> {
-  if (perfil !== 'gestor') return [];
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT marca FROM usuario_marcas WHERE usuario_id = ? ORDER BY marca',
-    [id],
-  );
-  return rows.map((r) => r.marca as string);
+function mapear(r: UsuarioRow): UsuarioPublico {
+  return {
+    id: r.id,
+    nome: r.nome,
+    email: r.email,
+    perfil: r.perfil,
+    centroDistribuicaoId: r.centro_distribuicao_id,
+    centroDistribuicaoNome: r.centro_distribuicao_nome,
+    senhaDefinida: Boolean(r.senha_definida),
+  };
 }
 
 // Autentica validando e-mail/senha no banco (bcrypt). A emissão do JWT e dos
@@ -48,10 +57,7 @@ async function marcasDoUsuario(id: number, perfil: Perfil): Promise<string[]> {
 // Cada login registra usuarios.ultimo_login e abre uma linha em `sessoes` — o
 // tempo logado é medido pelo heartbeat (registrarAtividade).
 export async function login(email: string, senha: string): Promise<ResultadoLogin> {
-  const [rows] = await pool.query<UsuarioRow[]>(
-    'SELECT id, nome, email, senha_hash, perfil, marca, senha_definida, ativo FROM usuarios WHERE email = ? LIMIT 1',
-    [email],
-  );
+  const [rows] = await pool.query<UsuarioRow[]>(`${SELECT_USUARIO} WHERE u.email = ? LIMIT 1`, [email]);
   const usuario = rows[0];
   if (!usuario || !usuario.ativo) {
     throw unauthorized('Credenciais inválidas');
@@ -67,20 +73,8 @@ export async function login(email: string, senha: string): Promise<ResultadoLogi
     'INSERT INTO sessoes (usuario_id) VALUES (?)',
     [usuario.id],
   );
-  const marcas = await marcasDoUsuario(usuario.id, usuario.perfil);
 
-  return {
-    usuario: {
-      id: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email,
-      perfil: usuario.perfil,
-      marca: usuario.marca,
-      marcas,
-      senhaDefinida: Boolean(usuario.senha_definida),
-    },
-    sessaoId: sessao.insertId,
-  };
+  return { usuario: mapear(usuario), sessaoId: sessao.insertId };
 }
 
 // Primeiro acesso / troca de senha: valida a senha atual, aplica a nova e marca
@@ -91,10 +85,7 @@ export async function definirSenha(
   senhaAtual: string,
   novaSenha: string,
 ): Promise<UsuarioPublico> {
-  const [rows] = await pool.query<UsuarioRow[]>(
-    'SELECT id, nome, email, senha_hash, perfil, marca, senha_definida, ativo FROM usuarios WHERE id = ? LIMIT 1',
-    [usuarioId],
-  );
+  const [rows] = await pool.query<UsuarioRow[]>(`${SELECT_USUARIO} WHERE u.id = ? LIMIT 1`, [usuarioId]);
   const usuario = rows[0];
   if (!usuario || !usuario.ativo) {
     throw unauthorized('Sessão inválida');
@@ -115,18 +106,10 @@ export async function definirSenha(
     usuarioId,
   ]);
 
-  return {
-    id: usuario.id,
-    nome: usuario.nome,
-    email: usuario.email,
-    perfil: usuario.perfil,
-    marca: usuario.marca,
-    marcas: await marcasDoUsuario(usuario.id, usuario.perfil),
-    senhaDefinida: true,
-  };
+  return { ...mapear(usuario), senhaDefinida: true };
 }
 
-// Heartbeat: o frontend chama periodicamente enquanto o consultor está ativo;
+// Heartbeat: o frontend chama periodicamente enquanto o operador está ativo;
 // o intervalo entre `inicio` e `ultimo_visto` é o tempo logado da sessão.
 export async function registrarAtividade(usuarioId: number, sessaoId: number): Promise<void> {
   await pool.query('UPDATE sessoes SET ultimo_visto = NOW() WHERE id = ? AND usuario_id = ?', [
@@ -164,7 +147,7 @@ export async function encerrarSessao(sessaoId: number, usuarioId: number): Promi
 
 // Encerra todas as sessões abertas de um usuário. `exceto` preserva a sessão
 // corrente — usado na troca de senha voluntária, para não deslogar quem acabou
-// de trocar. No reset feito por Admin/Gestor não há exceção: o objetivo é
+// de trocar. No reset feito pelo Admin não há exceção: o objetivo é
 // justamente derrubar quem estiver com a conta.
 export async function encerrarSessoesDoUsuario(usuarioId: number, exceto?: number): Promise<void> {
   if (exceto) {
@@ -182,19 +165,8 @@ export async function encerrarSessoesDoUsuario(usuarioId: number, exceto?: numbe
 
 // Usado pelo middleware para resolver o usuário autenticado a cada requisição.
 export async function buscarUsuarioPorId(id: number): Promise<UsuarioPublico | null> {
-  const [rows] = await pool.query<UsuarioRow[]>(
-    'SELECT id, nome, email, perfil, marca, senha_definida, ativo FROM usuarios WHERE id = ? LIMIT 1',
-    [id],
-  );
+  const [rows] = await pool.query<UsuarioRow[]>(`${SELECT_USUARIO} WHERE u.id = ? LIMIT 1`, [id]);
   const usuario = rows[0];
   if (!usuario || !usuario.ativo) return null;
-  return {
-    id: usuario.id,
-    nome: usuario.nome,
-    email: usuario.email,
-    perfil: usuario.perfil,
-    marca: usuario.marca,
-    marcas: await marcasDoUsuario(usuario.id, usuario.perfil),
-    senhaDefinida: Boolean(usuario.senha_definida),
-  };
+  return mapear(usuario);
 }

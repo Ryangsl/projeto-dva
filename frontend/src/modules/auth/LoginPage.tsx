@@ -15,7 +15,7 @@ export function LoginPage() {
 
   // Já autenticado: vai direto ao destino certo (as guardas de rota confirmam).
   if (usuario) {
-    return <Navigate to={precisaTrocarSenha ? '/primeiro-acesso' : '/guia'} replace />;
+    return <Navigate to={precisaTrocarSenha ? '/primeiro-acesso' : '/veiculos/novo'} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -25,7 +25,7 @@ export function LoginPage() {
     try {
       await entrar(email, senha);
       // As guardas de rota redirecionam para /primeiro-acesso quando necessário.
-      navigate('/guia', { replace: true });
+      navigate('/veiculos/novo', { replace: true });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setErro(
@@ -43,10 +43,10 @@ export function LoginPage() {
       <ThemeToggle className="tema-flutuante" />
       <form className="card login-card" onSubmit={handleSubmit}>
         <div className="login-logo">
-          <Logo height={64} />
+          <Logo height={84} />
         </div>
         <p className="login-tagline">
-          Conhecimento padronizado para um atendimento mais rápido, preciso e confiável.
+          Gerenciamento e distribuição de veículos do Grupo DVA.
         </p>
         <div className="login-sep" />
 

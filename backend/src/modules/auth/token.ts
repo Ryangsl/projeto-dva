@@ -12,7 +12,8 @@ export interface TokenPayload {
   sub: number;
   nome: string;
   perfil: Perfil;
-  marca: string | null;
+  // Centro de distribuição do Operador (null = Admin, sem restrição).
+  cdi: number | null;
   sd: boolean;
   sid: number;
 }

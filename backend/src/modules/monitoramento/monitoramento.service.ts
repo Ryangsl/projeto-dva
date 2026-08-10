@@ -1,91 +1,100 @@
-import type { ResultSetHeader } from 'mysql2';
+import type { RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database.js';
+import { env } from '../../config/env.js';
 
-// Metadados NÃO-identificáveis de um atendimento. Por design, nada aqui
-// identifica o cliente (sem nome, telefone, CPF, placa, chassi): o objetivo é
-// apenas contabilizar o uso da ferramenta pelo consultor.
-export interface MetadadosAtendimento {
-  marca?: string | null;
-  setor?: string | null;
-  canal?: 'presencial' | 'telefone' | null;
-  categoria?: string | null;
-  banco?: 'tecido' | 'couro' | null;
+const VDB = env.db.vehiclesDatabase;
+
+export interface ContagemPorGrupo {
+  nome: string;
+  total: number;
 }
 
-// Registra o INÍCIO de um atendimento (idempotente pelo uuid gerado no cliente).
-// Se a mesma chamada chegar duas vezes (retry offline), o ON DUPLICATE apenas
-// atualiza os metadados, sem duplicar a linha nem regredir um já concluído.
-export async function iniciarAtendimento(
-  usuarioId: number,
-  sessaoId: number | null,
-  uuid: string,
-  meta: MetadadosAtendimento,
-): Promise<void> {
-  await pool.query(
-    `INSERT INTO atendimentos (uuid, usuario_id, sessao_id, status, marca, setor, canal, categoria, banco)
-     VALUES (?, ?, ?, 'iniciado', ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       marca = VALUES(marca), setor = VALUES(setor), canal = VALUES(canal),
-       categoria = VALUES(categoria), banco = VALUES(banco)`,
-    [
-      uuid,
-      usuarioId,
-      sessaoId,
-      meta.marca ?? null,
-      meta.setor ?? null,
-      meta.canal ?? null,
-      meta.categoria ?? null,
-      meta.banco ?? null,
-    ],
-  );
+export interface PontoSerie {
+  dia: string; // YYYY-MM-DD
+  total: number;
 }
 
-// Marca o atendimento como CONCLUÍDO ao gerar o guia. Tolerante a offline: se o
-// "iniciar" não chegou (ex.: rede caiu no meio), cria a linha já concluída com o
-// mesmo uuid; se chegou, apenas fecha, preservando o iniciado_em original.
-export async function concluirAtendimento(
-  usuarioId: number,
-  sessaoId: number | null,
-  uuid: string,
-  meta: MetadadosAtendimento,
-): Promise<void> {
-  await pool.query(
-    `INSERT INTO atendimentos (uuid, usuario_id, sessao_id, status, marca, setor, canal, categoria, banco, concluido_em)
-     VALUES (?, ?, ?, 'concluido', ?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE
-       status = 'concluido',
-       concluido_em = COALESCE(concluido_em, NOW()),
-       marca = COALESCE(atendimentos.marca, VALUES(marca)),
-       setor = COALESCE(atendimentos.setor, VALUES(setor)),
-       canal = COALESCE(atendimentos.canal, VALUES(canal)),
-       categoria = COALESCE(atendimentos.categoria, VALUES(categoria)),
-       banco = COALESCE(atendimentos.banco, VALUES(banco))`,
-    [
-      uuid,
-      usuarioId,
-      sessaoId,
-      meta.marca ?? null,
-      meta.setor ?? null,
-      meta.canal ?? null,
-      meta.categoria ?? null,
-      meta.banco ?? null,
-    ],
-  );
+export interface DashboardVeiculos {
+  totalVeiculos: number;
+  veiculosHoje: number;
+  veiculosPeriodo: number;
+  porCentro: ContagemPorGrupo[];
+  porMarca: ContagemPorGrupo[];
+  serieDiaria: PontoSerie[];
 }
 
-// Remove atendimentos além da retenção (política: máx. 60 dias). Executado em
-// lotes pelo retention job para não segurar locks longos. Retorna quantas linhas
-// foram removidas nesta passada.
-export async function purgarAtendimentosAntigos(
-  diasRetencao: number,
-  lote: number,
-): Promise<number> {
-  // Valores internos (constantes do job), não entrada do usuário — inlinados
-  // como inteiros para evitar o tratamento de LIMIT com placeholder no mysql2.
-  const dias = Math.max(0, Math.floor(diasRetencao));
-  const limite = Math.max(1, Math.floor(lote));
-  const [res] = await pool.query<ResultSetHeader>(
-    `DELETE FROM atendimentos WHERE iniciado_em < (NOW() - INTERVAL ${dias} DAY) LIMIT ${limite}`,
-  );
-  return res.affectedRows ?? 0;
+// YYYY-MM-DD a partir de hoje - offset dias (fuso do próprio servidor).
+function diaOffset(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return d.toISOString().slice(0, 10);
+}
+
+// Preenche todo dia do período com 0 quando não há registro, para o gráfico
+// não pular datas sem cadastro.
+function montarSerie(dias: number, linhas: { dia: string; total: number }[]): PontoSerie[] {
+  const porDia = new Map(linhas.map((l) => [l.dia, l.total]));
+  const serie: PontoSerie[] = [];
+  for (let i = dias - 1; i >= 0; i--) {
+    const dia = diaOffset(i);
+    serie.push({ dia, total: porDia.get(dia) ?? 0 });
+  }
+  return serie;
+}
+
+export async function obterDashboard(dias: number): Promise<DashboardVeiculos> {
+  const [
+    [totalRows],
+    [hojeRows],
+    [periodoRows],
+    [centroRows],
+    [marcaRows],
+    [serieRows],
+  ] = await Promise.all([
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM veiculos'),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM veiculos WHERE DATE(criado_em) = CURDATE()'),
+    pool.query<RowDataPacket[]>(
+      'SELECT COUNT(*) AS total FROM veiculos WHERE criado_em >= (NOW() - INTERVAL ? DAY)',
+      [dias],
+    ),
+    pool.query<RowDataPacket[]>(`
+      SELECT cd.nome AS nome, COUNT(*) AS total
+        FROM veiculos v
+        JOIN centros_distribuicao cd ON cd.id = v.centro_distribuicao_id
+       GROUP BY cd.id, cd.nome
+       ORDER BY total DESC
+    `),
+    pool.query<RowDataPacket[]>(`
+      SELECT b.name AS nome, COUNT(*) AS total
+        FROM veiculos v
+        JOIN \`${VDB}\`.vehicle_brands b ON b.id = v.marca_id
+       GROUP BY b.id, b.name
+       ORDER BY total DESC
+    `),
+    pool.query<RowDataPacket[]>(
+      `SELECT DATE(criado_em) AS dia, COUNT(*) AS total
+         FROM veiculos
+        WHERE criado_em >= (NOW() - INTERVAL ? DAY)
+        GROUP BY DATE(criado_em)`,
+      [dias],
+    ),
+  ]);
+
+  return {
+    totalVeiculos: (totalRows[0] as { total: number }).total,
+    veiculosHoje: (hojeRows[0] as { total: number }).total,
+    veiculosPeriodo: (periodoRows[0] as { total: number }).total,
+    porCentro: (centroRows as { nome: string; total: number }[]).map((r) => ({
+      nome: r.nome,
+      total: r.total,
+    })),
+    porMarca: (marcaRows as { nome: string; total: number }[]).map((r) => ({
+      nome: r.nome,
+      total: r.total,
+    })),
+    serieDiaria: montarSerie(
+      dias,
+      (serieRows as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: r.total })),
+    ),
+  };
 }

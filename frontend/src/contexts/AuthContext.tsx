@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { onNaoAutorizado } from '../services/api';
 import * as authService from '../services/auth.service';
-import { limparGuiaCache } from '../services/guia.service';
 import type { Usuario } from '../types';
 
 // A sessão vive no cookie httpOnly (morre ao fechar o navegador). Além disso,
@@ -36,15 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [precisaTrocarSenha, setPrecisaTrocarSenha] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  // Sair também descarta o cache do guia: num tablet compartilhado, o conteúdo
-  // comercial da loja não pode ficar legível para o próximo usuário. Cobre
-  // tanto o logout manual quanto a expiração por inatividade (que chama daqui).
   const sair = useCallback((): void => {
-    if (usuario) limparGuiaCache(usuario.id);
     setUsuario(null);
     setPrecisaTrocarSenha(false);
     void authService.logout();
-  }, [usuario]);
+  }, []);
 
   // Restaura a sessão perguntando ao backend (o cookie httpOnly é enviado só).
   useEffect(() => {
