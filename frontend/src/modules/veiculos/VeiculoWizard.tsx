@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Usuario } from '../../types';
-import { BrandLogo } from '../../components/BrandLogo';
 import { chassiExiste } from '../../services/veiculos.service';
 import type { Centro, Cor, Marca, Modelo, NovoVeiculo, OpcoesFormulario } from './veiculos.types';
 
@@ -168,11 +167,10 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
             {dados.marcas.map((m) => (
               <button
                 key={m.id}
-                className={`chip chip-marca ${veiculo.marca?.id === m.id ? 'chip-ativo' : ''}`}
+                className={`chip ${veiculo.marca?.id === m.id ? 'chip-ativo' : ''}`}
                 onClick={() => escolherMarca(m)}
               >
-                <BrandLogo marca={m.nome} size={26} />
-                <span>{m.nome}</span>
+                {m.nome}
               </button>
             ))}
           </div>

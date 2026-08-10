@@ -3,7 +3,6 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
-import '../../styles/ui.css';
 
 export function LoginPage() {
   const { usuario, precisaTrocarSenha, entrar } = useAuth();

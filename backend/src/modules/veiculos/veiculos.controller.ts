@@ -62,3 +62,10 @@ export async function buscarPorId(req: Request, res: Response): Promise<void> {
   if (!Number.isInteger(id) || id <= 0) throw badRequest('Id inválido');
   res.json({ veiculo: await veiculosService.buscarPorId(id) });
 }
+
+export async function excluir(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) throw badRequest('Id inválido');
+  await veiculosService.excluir(id);
+  res.status(204).end();
+}

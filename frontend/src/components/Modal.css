@@ -1,0 +1,71 @@
+/* Estilos do componente Modal — colocados junto ao componente (em vez de no
+   CSS de uma página específica) de propósito: o Modal é usado em Usuários,
+   Centros E Monitoramento (chunks lazy separados), e uma tela que nunca
+   importasse o CSS "certo" renderizava o diálogo sem posicionamento, sem
+   largura máxima e sem controle de overflow — bug real já visto em produção
+   (o modal "tomava a tela toda" e travava o scroll). Importar aqui garante
+   que o Modal sempre tem seu próprio estilo, não importa de onde é aberto. */
+
+.usuarios-modal-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 100;
+  /* Em telas baixas (celular deitado, tablet pequeno), o overlay rola em vez
+     de cortar o topo/rodapé do diálogo fora da viewport. */
+  overflow-y: auto;
+}
+.usuarios-modal {
+  max-width: 380px;
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  /* O próprio card também rola se o conteúdo (ex.: aviso de exclusão) for
+     mais alto do que a viewport disponível. */
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  /* Sempre esconde overflow horizontal: sem isso, um filho de grid que não
+     consiga encolher (ver regra abaixo) vaza para fora do cartão em vez de
+     ficar contido. */
+  overflow-x: hidden;
+}
+/* Itens de grid nascem com `min-width: auto`, ou seja, não encolhem abaixo do
+   tamanho mínimo do próprio conteúdo (mesmo padrão de bug já documentado no
+   CLAUDE.md para .guia-conteudo/.dash). Um <video>/<img> com dimensões
+   intrínsecas grandes força a coluna do grid a crescer além de max-width,
+   "vazando" o conteúdo para fora do modal em vez de ser limitado por
+   width:100%. */
+.usuarios-modal > * {
+  min-width: 0;
+}
+/* Variante para modais com mais conteúdo (ex.: detalhe do veículo: campos +
+   galeria de fotos + vídeo) — o padrão de 380px é pensado para diálogos
+   simples (senha, confirmação) e fica apertado demais para isso. */
+.usuarios-modal-largo {
+  max-width: 720px;
+}
+.usuarios-modal-titulo {
+  margin: 0;
+  color: var(--heading);
+  font-size: 1.1rem;
+}
+
+/* Destaque do que será perdido na exclusão, dentro do modal de confirmação. */
+.usuarios-modal-alerta {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  margin: 4px 0 12px;
+}
+.usuarios-modal-acoes {
+  display: flex;
+  gap: 8px;
+}
+.usuarios-modal-acoes .btn {
+  flex: 1;
+}

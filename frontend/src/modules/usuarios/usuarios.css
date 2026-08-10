@@ -49,13 +49,6 @@
 .usuarios-item-inativo {
   opacity: 0.65;
 }
-.usuarios-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  flex: none;
-}
 
 .usuarios-info {
   flex: 1;
@@ -102,37 +95,6 @@
   min-height: 38px;
   font-size: 0.85rem;
 }
-/* Ação destrutiva e irreversível: precisa se distinguir de "Editar"/"Desativar"
-   à primeira vista, para não ser clicada por engano. Fica discreta em repouso
-   e assume o vermelho só no hover/foco, evitando competir com o resto da linha. */
-.btn-perigo {
-  background: transparent;
-  color: var(--danger);
-  border: 1px solid var(--border-forte);
-}
-.btn-perigo:hover,
-.btn-perigo:focus-visible {
-  background: var(--danger-bg);
-  border-color: var(--danger);
-}
-
-/* Destaque do que será perdido na exclusão, dentro do modal de confirmação. */
-.usuarios-modal-alerta {
-  color: var(--danger);
-  background: var(--danger-bg);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 0.9rem;
-  margin: 4px 0 12px;
-}
-.usuarios-modal-acoes {
-  display: flex;
-  gap: 8px;
-}
-.usuarios-modal-acoes .btn {
-  flex: 1;
-}
-
 .usuarios-edicao {
   flex: 1;
   display: grid;
@@ -157,33 +119,6 @@
   grid-column: 1 / -1;
 }
 
-.usuarios-modal-fundo {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  z-index: 100;
-  /* Em telas baixas (celular deitado, tablet pequeno), o overlay rola em vez
-     de cortar o topo/rodapé do diálogo fora da viewport. */
-  overflow-y: auto;
-}
-.usuarios-modal {
-  max-width: 380px;
-  width: 100%;
-  display: grid;
-  gap: 12px;
-  /* O próprio card também rola se o conteúdo (ex.: aviso de exclusão) for
-     mais alto do que a viewport disponível. */
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-}
-.usuarios-modal-titulo {
-  margin: 0;
-  color: var(--heading);
-  font-size: 1.1rem;
-}
 .usuarios-senha-caixa {
   display: flex;
   align-items: center;

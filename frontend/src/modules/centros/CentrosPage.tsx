@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { AppHeader } from '../../components/AppHeader';
 import { atualizarCentro, criarCentro, listarCentros, type Centro } from '../../services/centros.service';
-import '../../styles/ui.css';
 import '../veiculos/veiculos.css';
 import '../usuarios/usuarios.css';
 
@@ -121,8 +120,6 @@ export function CentrosPage() {
         <div className="usuarios-lista">
           {lista?.map((c) => (
             <div key={c.id} className={`usuarios-item ${!c.ativo ? 'usuarios-item-inativo' : ''}`}>
-              <div className="usuarios-avatar" />
-
               {editandoId === c.id ? (
                 <div className="usuarios-edicao">
                   <input

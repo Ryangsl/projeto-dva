@@ -1,10 +1,13 @@
-import { basename } from 'node:path';
+import { unlink } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database.js';
 import { env } from '../../config/env.js';
 import type { Perfil } from '../../middlewares/auth.js';
 import { badRequest, forbidden, notFound } from '../../shared/http-error.js';
+import { gerarProtocolo } from '../../shared/protocolo.js';
 import { MARCAS_DVA } from './marcas-dva.js';
+import { UPLOAD_DIR } from './upload.js';
 
 // Nome do banco antigo do PROCAR (mesma instância MySQL), só para qualificar
 // as consultas cross-database ao catálogo de veículos já importado da FIPE.
@@ -102,8 +105,18 @@ async function existeModelo(modeloId: number, marcaId: number): Promise<boolean>
   return rows.length > 0;
 }
 
-function isDuplicateChassi(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ER_DUP_ENTRY';
+// Distingue QUAL chave única colidiu: chassi é erro do usuário (mensagem
+// clara); protocolo é gerado pelo servidor, então uma colisão (extremamente
+// improvável — 4 caracteres de um alfabeto de 32, por dia) é resolvida com
+// nova tentativa em silêncio, nunca exposta como erro.
+function chaveDuplicada(err: unknown): 'chassi' | 'protocolo' | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const e = err as { code?: string; sqlMessage?: string; message?: string };
+  if (e.code !== 'ER_DUP_ENTRY') return null;
+  const msg = e.sqlMessage ?? e.message ?? '';
+  if (msg.includes('protocolo')) return 'protocolo';
+  if (msg.includes('chassi')) return 'chassi';
+  return null;
 }
 
 export async function chassiExiste(chassi: string): Promise<boolean> {
@@ -135,7 +148,7 @@ export interface UsuarioAutenticado {
 }
 
 const SELECT_DETALHE = `
-  SELECT v.id, v.chassi, v.destino, v.observacoes, v.video_path, v.criado_em,
+  SELECT v.id, v.chassi, v.protocolo, v.destino, v.observacoes, v.video_path, v.criado_em,
          v.marca_id, v.modelo_id, v.cor_id,
          b.name AS marca_nome, m.name AS modelo_nome,
          c.nome AS cor_nome, c.hex AS cor_hex,
@@ -152,6 +165,7 @@ const SELECT_DETALHE = `
 interface VeiculoRow extends RowDataPacket {
   id: number;
   chassi: string;
+  protocolo: string;
   destino: string | null;
   observacoes: string | null;
   video_path: string | null;
@@ -171,6 +185,7 @@ interface VeiculoRow extends RowDataPacket {
 export interface VeiculoResumo {
   id: number;
   chassi: string;
+  protocolo: string;
   marcaNome: string;
   modeloNome: string | null;
   corNome: string | null;
@@ -191,6 +206,7 @@ function mapearResumo(r: VeiculoRow): VeiculoResumo {
   return {
     id: r.id,
     chassi: r.chassi,
+    protocolo: r.protocolo,
     marcaNome: r.marca_nome,
     modeloNome: r.modelo_nome,
     corNome: r.cor_nome,
@@ -240,28 +256,39 @@ export async function criar(
   const videoPath = arquivos.video ? basename(arquivos.video.path) : null;
   const chassi = dados.chassi.toUpperCase().trim();
 
-  let insertId: number;
-  try {
-    const [resultado] = await pool.query<ResultSetHeader>(
-      `INSERT INTO veiculos
-        (chassi, marca_id, modelo_id, cor_id, centro_distribuicao_id, destino, observacoes, video_path, usuario_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        chassi,
-        dados.marcaId,
-        dados.modeloId ?? null,
-        dados.corId ?? null,
-        centroId,
-        dados.destino ?? null,
-        dados.observacoes ?? null,
-        videoPath,
-        usuario.sub,
-      ],
-    );
-    insertId = resultado.insertId;
-  } catch (err) {
-    if (isDuplicateChassi(err)) throw badRequest('Já existe um veículo cadastrado com este chassi');
-    throw err;
+  let insertId: number | undefined;
+  const TENTATIVAS_PROTOCOLO = 5;
+  for (let tentativa = 0; tentativa < TENTATIVAS_PROTOCOLO; tentativa++) {
+    const protocolo = gerarProtocolo();
+    try {
+      const [resultado] = await pool.query<ResultSetHeader>(
+        `INSERT INTO veiculos
+          (chassi, protocolo, marca_id, modelo_id, cor_id, centro_distribuicao_id, destino, observacoes, video_path, usuario_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          chassi,
+          protocolo,
+          dados.marcaId,
+          dados.modeloId ?? null,
+          dados.corId ?? null,
+          centroId,
+          dados.destino ?? null,
+          dados.observacoes ?? null,
+          videoPath,
+          usuario.sub,
+        ],
+      );
+      insertId = resultado.insertId;
+      break;
+    } catch (err) {
+      const chave = chaveDuplicada(err);
+      if (chave === 'chassi') throw badRequest('Já existe um veículo cadastrado com este chassi');
+      if (chave === 'protocolo' && tentativa < TENTATIVAS_PROTOCOLO - 1) continue;
+      throw err;
+    }
+  }
+  if (insertId === undefined) {
+    throw new Error('Não foi possível gerar um protocolo único para o veículo');
   }
 
   if (arquivos.fotos.length > 0) {
@@ -331,4 +358,39 @@ export async function buscarPorId(id: number): Promise<VeiculoDetalhe> {
   const veiculo = rows[0];
   if (!veiculo) throw notFound('Veículo não encontrado');
   return mapearDetalhe(veiculo);
+}
+
+// Exclusão definitiva (só Admin — a rota também exige o perfil). O veículo já
+// saiu para a concessionária: excluir aqui é corrigir um cadastro errado, não
+// um fluxo comum. Junto com a linha vão os registros de `veiculo_fotos` (FK
+// ON DELETE CASCADE) e, best-effort, os arquivos físicos em disco — uma falha
+// ao apagar um arquivo (já removido manualmente, permissão, etc.) não deve
+// impedir a exclusão do cadastro.
+export async function excluir(id: number): Promise<void> {
+  const [fotosRows] = await pool.query<RowDataPacket[]>(
+    'SELECT caminho FROM veiculo_fotos WHERE veiculo_id = ?',
+    [id],
+  );
+  const [veiculoRows] = await pool.query<RowDataPacket[]>(
+    'SELECT video_path FROM veiculos WHERE id = ? LIMIT 1',
+    [id],
+  );
+  if (veiculoRows.length === 0) throw notFound('Veículo não encontrado');
+
+  const caminhos = [
+    ...(fotosRows as { caminho: string }[]).map((f) => f.caminho),
+    ...((veiculoRows[0] as { video_path: string | null }).video_path
+      ? [(veiculoRows[0] as { video_path: string }).video_path]
+      : []),
+  ];
+
+  await pool.query('DELETE FROM veiculos WHERE id = ?', [id]);
+
+  await Promise.all(
+    caminhos.map((caminho) =>
+      unlink(join(UPLOAD_DIR, caminho)).catch(() => {
+        /* arquivo já ausente ou sem permissão — não impede a exclusão do cadastro */
+      }),
+    ),
+  );
 }

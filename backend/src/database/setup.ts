@@ -8,11 +8,83 @@ import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import mysql from 'mysql2/promise';
 import { env } from '../config/env.js';
+import { gerarProtocolo } from '../shared/protocolo.js';
 // De shared/ (não do módulo usuarios): evita carregar o pool de conexões da
 // aplicação dentro do script de setup, que usa a própria conexão.
 import { gerarSenhaTemporaria } from '../shared/senha.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Adiciona uma coluna se ainda não existir — migração leve para bancos já
+// criados antes da coluna entrar no schema.sql (ex.: quem já tinha rodado
+// db:setup e cadastrado veículos antes do protocolo existir).
+async function garantirColuna(
+  conn: mysql.Connection,
+  tabela: string,
+  coluna: string,
+  definicao: string,
+): Promise<boolean> {
+  const [rows] = await conn.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = ? AND column_name = ?`,
+    [env.db.database, tabela, coluna],
+  );
+  if ((rows as unknown[]).length === 0) {
+    await conn.query(`ALTER TABLE \`${tabela}\` ADD COLUMN ${coluna} ${definicao}`);
+    console.log(`✔ Coluna ${tabela}.${coluna} adicionada.`);
+    return true;
+  }
+  return false;
+}
+
+async function garantirIndice(
+  conn: mysql.Connection,
+  tabela: string,
+  indice: string,
+  definicao: string,
+): Promise<boolean> {
+  const [rows] = await conn.query(
+    `SELECT 1 FROM information_schema.statistics
+     WHERE table_schema = ? AND table_name = ? AND index_name = ?`,
+    [env.db.database, tabela, indice],
+  );
+  if ((rows as unknown[]).length === 0) {
+    await conn.query(`ALTER TABLE \`${tabela}\` ADD ${definicao}`);
+    console.log(`✔ Índice ${tabela}.${indice} criado.`);
+    return true;
+  }
+  return false;
+}
+
+// Veículos cadastrados antes do protocolo existir (bancos de desenvolvimento
+// já em uso) precisam de um valor de backfill único antes da coluna virar
+// NOT NULL + UNIQUE. Volume é sempre pequeno (dados de teste), então um
+// retry simples em caso de colisão (extremamente improvável) é suficiente.
+async function preencherProtocolosFaltantes(conn: mysql.Connection): Promise<void> {
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    'SELECT id, criado_em FROM veiculos WHERE protocolo IS NULL OR protocolo = ?',
+    [''],
+  );
+  const pendentes = rows as { id: number; criado_em: string }[];
+  for (const v of pendentes) {
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      const protocolo = gerarProtocolo(new Date(v.criado_em));
+      try {
+        await conn.query('UPDATE veiculos SET protocolo = ? WHERE id = ?', [protocolo, v.id]);
+        break;
+      } catch (err) {
+        if (!isDuplicateEntry(err) || tentativa === 4) throw err;
+      }
+    }
+  }
+  if (pendentes.length > 0) {
+    console.log(`✔ Protocolo preenchido para ${pendentes.length} veículo(s) já cadastrado(s).`);
+  }
+}
+
+function isDuplicateEntry(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ER_DUP_ENTRY';
+}
 
 // Cores semeadas — catálogo básico, sem o texto de venda que existia no Guia.
 const CORES_SEED: Array<[nome: string, hex: string, ordem: number]> = [
@@ -67,6 +139,18 @@ async function run(): Promise<void> {
   const schema = await readFile(join(__dirname, 'schema.sql'), 'utf8');
   await root.query(schema);
   console.log(`✔ Schema aplicado em \`${env.db.database}\`.`);
+
+  // Migração leve: bancos que já tinham `veiculos` antes do protocolo existir
+  // (cadastros de teste feitos antes desta versão) ganham a coluna, um
+  // backfill único por linha e só então a restrição NOT NULL + UNIQUE — nessa
+  // ordem, para nunca haver uma janela em que uma linha exista sem valor
+  // numa coluna já obrigatória.
+  const protocoloColunaCriada = await garantirColuna(root, 'veiculos', 'protocolo', 'VARCHAR(12) NULL AFTER chassi');
+  await preencherProtocolosFaltantes(root);
+  if (protocoloColunaCriada) {
+    await root.query('ALTER TABLE veiculos MODIFY COLUMN protocolo VARCHAR(12) NOT NULL');
+  }
+  await garantirIndice(root, 'veiculos', 'uq_veiculos_protocolo', 'UNIQUE KEY uq_veiculos_protocolo (protocolo)');
 
   // Seed: usuário Admin. Nasce com senha_definida = 0, como qualquer outro
   // perfil: o primeiro acesso obriga a definir uma senha própria.

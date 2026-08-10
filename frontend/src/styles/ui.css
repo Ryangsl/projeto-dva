@@ -76,6 +76,20 @@
 .btn-bloco {
   width: 100%;
 }
+/* Ação destrutiva e irreversível (excluir usuário, excluir veículo...):
+   precisa se distinguir de "Editar"/"Desativar" à primeira vista, para não
+   ser clicada por engano. Fica discreta em repouso e assume o vermelho só no
+   hover/foco, evitando competir com o resto da linha de ações. */
+.btn-perigo {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--border-forte);
+}
+.btn-perigo:hover,
+.btn-perigo:focus-visible {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
 
 .erro {
   color: var(--danger);

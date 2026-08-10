@@ -2,14 +2,30 @@ import { useState } from 'react';
 
 // Miniatura de foto com fallback: se o arquivo não carregar (removido do
 // disco, erro de rede, etc.), mostra um estado visual em vez do ícone de
-// imagem quebrada nativo do navegador.
-export function FotoComFallback({ src, alt }: { src: string; alt: string }) {
+// imagem quebrada nativo do navegador. `onClick`, quando informado, torna a
+// miniatura um botão (abre o Lightbox na tela que a usa).
+export function FotoComFallback({
+  src,
+  alt,
+  onClick,
+}: {
+  src: string;
+  alt: string;
+  onClick?: () => void;
+}) {
   const [falhou, setFalhou] = useState(false);
   if (falhou) {
     return (
       <div className="veiculo-foto-thumb veiculo-midia-indisponivel">
         <span>Foto indisponível</span>
       </div>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" className="veiculo-foto-thumb veiculo-foto-thumb-clicavel" onClick={onClick}>
+        <img src={src} alt={alt} onError={() => setFalhou(true)} />
+      </button>
     );
   }
   return (

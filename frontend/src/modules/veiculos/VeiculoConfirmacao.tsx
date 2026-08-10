@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Lightbox } from '../../components/Lightbox';
 import { FotoComFallback, VideoComFallback } from '../../components/MidiaComFallback';
 import { urlMidia } from '../../services/veiculos.service';
 import type { VeiculoDetalhe } from './veiculos.types';
@@ -11,6 +13,9 @@ interface Props {
 // roteiro/ofertas (isso era específico do antigo Guia de Atendimento) — só o
 // registro do veículo, que já está gravado no banco a essa altura.
 export function VeiculoConfirmacao({ veiculo, onNovo }: Props) {
+  const [fotoAberta, setFotoAberta] = useState<number | null>(null);
+  const urlsFotos = veiculo.fotos.map(urlMidia);
+
   return (
     <div className="guia-resultado">
       <div className="atendimento-capa-wrap">
@@ -18,6 +23,9 @@ export function VeiculoConfirmacao({ veiculo, onNovo }: Props) {
           <div className="atendimento-info">
             <span className="atendimento-rotulo">Veículo cadastrado</span>
             <h1 className="atendimento-cliente">{veiculo.chassi}</h1>
+            <p className="veiculo-protocolo">
+              Protocolo: <strong>{veiculo.protocolo}</strong>
+            </p>
             <div className="atendimento-veiculo">
               <span className="atendimento-tag">{veiculo.marcaNome}</span>
               {veiculo.modeloNome && <span className="atendimento-tag">{veiculo.modeloNome}</span>}
@@ -50,12 +58,17 @@ export function VeiculoConfirmacao({ veiculo, onNovo }: Props) {
           </div>
         )}
 
-        {veiculo.fotos.length > 0 && (
+        {urlsFotos.length > 0 && (
           <div className="card veiculo-bloco">
             <h2 className="guia-col-titulo">Fotos</h2>
             <div className="veiculo-fotos-grid">
-              {veiculo.fotos.map((foto) => (
-                <FotoComFallback key={foto} src={urlMidia(foto)} alt={`Foto de ${veiculo.chassi}`} />
+              {urlsFotos.map((url, i) => (
+                <FotoComFallback
+                  key={url}
+                  src={url}
+                  alt={`Foto ${i + 1} de ${veiculo.chassi}`}
+                  onClick={() => setFotoAberta(i)}
+                />
               ))}
             </div>
           </div>
@@ -74,6 +87,15 @@ export function VeiculoConfirmacao({ veiculo, onNovo }: Props) {
           Cadastrar outro veículo
         </button>
       </div>
+
+      {fotoAberta !== null && (
+        <Lightbox
+          imagens={urlsFotos}
+          indice={fotoAberta}
+          onFechar={() => setFotoAberta(null)}
+          onNavegar={setFotoAberta}
+        />
+      )}
     </div>
   );
 }

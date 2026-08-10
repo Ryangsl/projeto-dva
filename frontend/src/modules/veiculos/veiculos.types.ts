@@ -56,6 +56,7 @@ export const NOVO_VEICULO_VAZIO: NovoVeiculo = {
 export interface VeiculoResumo {
   id: number;
   chassi: string;
+  protocolo: string;
   marcaNome: string;
   modeloNome: string | null;
   corNome: string | null;

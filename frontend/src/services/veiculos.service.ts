@@ -73,3 +73,10 @@ export async function buscarVeiculoPorId(id: number): Promise<VeiculoDetalhe> {
   const { data } = await api.get<{ veiculo: VeiculoDetalhe }>(`/veiculos/${id}`);
   return data.veiculo;
 }
+
+// Exclusão definitiva (só Admin — o backend também restringe). O veículo já
+// pode ter saído para a concessionária; existe para corrigir um cadastro
+// errado, não como fluxo comum.
+export async function excluirVeiculo(id: number): Promise<void> {
+  await api.delete(`/veiculos/${id}`);
+}

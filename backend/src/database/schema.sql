@@ -77,14 +77,20 @@ CREATE TABLE IF NOT EXISTS cores (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Cadastro central do DVA. `chassi` é o identificador único do veículo — não
--- permite dois cadastros para o mesmo veículo, de nenhum centro.
+-- permite dois cadastros para o mesmo veículo, de nenhum centro (é o que ele
+-- sai de lá para a concessionária: o mesmo chassi não pode voltar a entrar).
+-- `protocolo` é gerado no servidor a cada cadastro (AAAA + MMDD + 4
+-- caracteres aleatórios, ex. 20260810X7K2) — um recibo curto e único da
+-- operação, devolvido ao operador na hora e reexibido no monitoramento; é
+-- gerado pelo backend, nunca aceito do cliente (ver veiculos.service.ts).
 -- `marca_id`/`modelo_id` referenciam vehicle_brands/vehicle_models do banco
 -- ANTIGO (painel_procar), sem FK (cross-database) — ver nota no topo do
 -- arquivo. `modelo_id`/`cor_id` são opcionais: o cadastro não pode travar se a
 -- marca escolhida tiver pouca cobertura de modelos na base FIPE.
 CREATE TABLE IF NOT EXISTS veiculos (
   id                     BIGINT AUTO_INCREMENT PRIMARY KEY,
-  chassi                 VARCHAR(32) NOT NULL UNIQUE,
+  chassi                 VARCHAR(32) NOT NULL,
+  protocolo              VARCHAR(12) NOT NULL,
   marca_id               INT NOT NULL,
   modelo_id              INT NULL,
   cor_id                 INT NULL,
@@ -94,6 +100,8 @@ CREATE TABLE IF NOT EXISTS veiculos (
   video_path             VARCHAR(255) NULL,
   usuario_id             INT NOT NULL,
   criado_em              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_veiculos_chassi  UNIQUE (chassi),
+  CONSTRAINT uq_veiculos_protocolo UNIQUE (protocolo),
   CONSTRAINT fk_veiculos_cor     FOREIGN KEY (cor_id)    REFERENCES cores(id) ON DELETE SET NULL,
   CONSTRAINT fk_veiculos_centro  FOREIGN KEY (centro_distribuicao_id) REFERENCES centros_distribuicao(id),
   CONSTRAINT fk_veiculos_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),

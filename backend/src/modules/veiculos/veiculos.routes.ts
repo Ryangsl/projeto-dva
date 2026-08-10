@@ -14,6 +14,7 @@ veiculosRoutes.get('/opcoes', asyncHandler(veiculosController.opcoes));
 veiculosRoutes.get('/chassi/:chassi', asyncHandler(veiculosController.verificarChassi));
 veiculosRoutes.post('/', uploadVeiculo, asyncHandler(veiculosController.criar));
 
-// Listagem/detalhe (monitoramento): só Admin.
+// Listagem/detalhe/exclusão (monitoramento): só Admin.
 veiculosRoutes.get('/', authorize('admin'), asyncHandler(veiculosController.listar));
 veiculosRoutes.get('/:id', authorize('admin'), asyncHandler(veiculosController.buscarPorId));
+veiculosRoutes.delete('/:id', authorize('admin'), asyncHandler(veiculosController.excluir));

@@ -118,11 +118,6 @@
 .chip-ativo small {
   color: rgba(255, 255, 255, 0.85);
 }
-.chip-marca {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
 
 .guia-cores {
   display: flex;
@@ -283,6 +278,131 @@
   object-fit: cover;
   display: block;
 }
+/* Miniatura clicável (abre o Lightbox) — reseta o chrome padrão de <button>,
+   mantendo a borda/raio já definidos acima em .veiculo-foto-thumb. */
+.veiculo-foto-thumb-clicavel {
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  font: inherit;
+  display: block;
+}
+.veiculo-foto-thumb-clicavel:hover img,
+.veiculo-foto-thumb-clicavel:focus-visible img {
+  filter: brightness(0.85);
+}
+
+/* ===== Lightbox (visualização ampliada de foto, com navegação) ===== */
+.lightbox-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+/* Quadro contido por padrão (não cobre a tela toda) — hug do tamanho real da
+   imagem via inline-block + line-height:0, para o botão de expandir ficar
+   ancorado no canto da imagem de verdade, não num container maior vazio. */
+.lightbox-quadro {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+.lightbox-imagem {
+  display: block;
+  max-width: min(720px, 88vw);
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 6px;
+  transition: max-width 0.2s ease, max-height 0.2s ease;
+}
+.lightbox-imagem-expandida {
+  max-width: 96vw;
+  max-height: 92vh;
+}
+.lightbox-expandir {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-expandir:hover,
+.lightbox-expandir:focus-visible {
+  background: rgba(0, 0, 0, 0.8);
+}
+.lightbox-fechar,
+.lightbox-nav {
+  position: absolute;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-fechar:hover,
+.lightbox-fechar:focus-visible,
+.lightbox-nav:hover,
+.lightbox-nav:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+}
+.lightbox-fechar {
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+}
+.lightbox-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  font-size: 2rem;
+}
+.lightbox-nav-anterior {
+  left: 16px;
+}
+.lightbox-nav-proxima {
+  right: 16px;
+}
+.lightbox-contador {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  .lightbox-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 1.6rem;
+  }
+}
 /* Estado de falha ao carregar foto/vídeo (arquivo removido, erro de rede
    depois da mídia já ter passado pela autenticação, etc.) — evita o ícone de
    imagem quebrada nativo do navegador e o <video> preso em loading. */
@@ -326,6 +446,7 @@
 .veiculo-video-tag {
   width: 100%;
   max-width: 100%;
+  max-height: 50vh;
   border-radius: var(--raio);
   background: #000;
 }
@@ -383,6 +504,16 @@
   color: var(--heading);
   margin: 2px 0 8px;
   line-height: 1.2;
+}
+.veiculo-protocolo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 10px;
+}
+.veiculo-protocolo strong {
+  color: var(--accent);
+  font-family: monospace;
+  letter-spacing: 0.5px;
 }
 .atendimento-veiculo {
   display: flex;

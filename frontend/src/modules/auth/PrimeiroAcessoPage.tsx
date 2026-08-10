@@ -3,7 +3,6 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
-import '../../styles/ui.css';
 
 // Regras da nova senha (espelham a validação do backend).
 const REGRAS = [

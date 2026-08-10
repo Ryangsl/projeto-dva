@@ -12,7 +12,6 @@ import {
   type CentroOpcao,
   type UsuarioGerenciado,
 } from '../../services/usuarios.service';
-import '../../styles/ui.css';
 import '../veiculos/veiculos.css';
 import './usuarios.css';
 
@@ -221,8 +220,6 @@ export function UsuariosPage() {
         <div className="usuarios-lista">
           {lista?.map((u) => (
             <div key={u.id} className={`usuarios-item ${!u.ativo ? 'usuarios-item-inativo' : ''}`}>
-              <div className="usuarios-avatar" />
-
               {editandoId === u.id ? (
                 <div className="usuarios-edicao">
                   <input

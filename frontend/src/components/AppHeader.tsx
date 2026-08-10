@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -55,12 +54,6 @@ export function AppHeader({ titulo, acoes }: AppHeaderProps) {
         </div>
         <div className="app-topo-dir">
           {acoes}
-          {/* Disponível a todos os perfis, inclusive Admin (TI). */}
-          {usuario && (
-            <Link to="/minha-senha" className="app-topo-link">
-              Minha senha
-            </Link>
-          )}
           <ThemeToggle />
           {usuario && <span className="app-topo-user">{usuario.nome}</span>}
           <button className="app-topo-btn" onClick={sair}>
