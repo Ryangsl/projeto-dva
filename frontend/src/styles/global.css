@@ -1,0 +1,325 @@
+:root {
+  /* ----------------------------------------------------------------------
+     Paleta da marca PROCAR (cores fixas, independentes de tema — usadas como
+     origem dos tokens semânticos e por elementos que não mudam com o tema).
+     ---------------------------------------------------------------------- */
+  --azul-900: #0b2a4a;
+  --azul-700: #12467a;
+  --azul-500: #1f6fb2;
+  --azul-100: #e6f0f9;
+  --cinza-900: #1a1f26;
+  --cinza-600: #5a6472;
+  --cinza-300: #cbd2dc;
+  --cinza-100: #f2f4f7;
+  --branco: #ffffff;
+  --verde: #1f9d6b;
+  --vermelho: #d64545;
+
+  /* ----------------------------------------------------------------------
+     Tokens semânticos de tema (TEMA CLARO). Todos os componentes consomem
+     estes tokens — trocar o tema só reescreve estes valores, nada quebra.
+     ---------------------------------------------------------------------- */
+  --bg: #e9edf3;               /* fundo da página */
+  --surface: #ffffff;         /* cartões / faixas */
+  --surface-2: #f2f4f7;       /* superfície sutil (tags, trilhos, botão 2º) */
+  --text: #1a1f26;            /* texto principal */
+  --text-muted: #5a6472;      /* texto secundário */
+  --heading: #0b2a4a;         /* títulos / texto de destaque */
+  --border: #d3dae3;          /* bordas */
+  --border-forte: #c2cbd6;    /* bordas de campos/chips */
+  --accent: #1f6fb2;          /* acento em texto, links, ícones, linhas */
+  --accent-solid: #1f6fb2;    /* acento em preenchimentos (botões, chips) */
+  --accent-fill: #0b2a4a;     /* preenchimento escuro (nº do roteiro, chips) */
+  --on-accent: #ffffff;       /* texto sobre preenchimentos de acento */
+  --soft-bg: #e6f0f9;         /* realce suave (frases do roteiro) */
+  --soft-text: #0b2a4a;       /* texto sobre o realce suave */
+  --ok: #1f9d6b;
+  --danger: #d64545;
+  --danger-bg: #fdecec;
+
+  --sombra: 0 2px 10px rgba(11, 42, 74, 0.08);
+  --sombra-forte: 0 6px 20px rgba(11, 42, 74, 0.14);
+
+  /* Fundo (imagem supercar) com véu por cima — cor do véu muda por tema. */
+  --veu-topo: rgba(255, 255, 255, 0.9);
+  --veu-base: rgba(255, 255, 255, 0.94);
+  --logo-filtro: none; /* logo preta original no tema claro */
+
+  --raio: 12px;
+  --topo-altura: 60px; /* altura reservada para a faixa fixa */
+
+  --fonte: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------------
+   TEMA ESCURO — só reescreve os tokens semânticos. Contraste preservado.
+   ------------------------------------------------------------------------ */
+:root[data-theme='escuro'] {
+  --bg: #0e141c;
+  --surface: #18222f;
+  --surface-2: #212d3d;
+  --text: #e7ecf2;
+  --text-muted: #9aa6b6;
+  --heading: #d4e6f8;
+  --border: #2c3a4b;
+  --border-forte: #3a4a5e;
+  --accent: #5aa8e6;       /* claro o bastante p/ ler sobre superfície escura */
+  --accent-solid: #2d76b8; /* branco por cima mantém contraste em botões */
+  --accent-fill: #1f3a5c;
+  --on-accent: #ffffff;
+  --soft-bg: #1b2c3f;
+  --soft-text: #d4e6f8;
+  --ok: #34c088;
+  --danger: #e46a6a;
+  --danger-bg: #3a1f22;
+
+  --sombra: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --sombra-forte: 0 6px 22px rgba(0, 0, 0, 0.55);
+
+  --veu-topo: rgba(10, 15, 22, 0.82);
+  --veu-base: rgba(10, 15, 22, 0.9);
+  --logo-filtro: brightness(0) invert(1); /* arte preta → branca no escuro */
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--fonte);
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: 100dvh; /* considera as barras dinâmicas de celular/tablet */
+  overflow-x: hidden;
+  /* Mobile-first: base pensada para o tablet do balcão */
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Plano de fundo em camada fixa própria (não no body): background-attachment
+   fixed é ignorado/estoura em iOS e Android — com um pseudo-elemento fixo a
+   imagem cobre exatamente a viewport em qualquer dispositivo/orientação. O véu
+   (claro ou escuro, conforme o tema) garante a leitura dos componentes por
+   cima (z-index -1: nunca sobrepõe a interface). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(var(--veu-topo), var(--veu-base)),
+    url('/images/fundo-supercar.png') center / cover no-repeat;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* A logo (arte preta) é invertida para branca no tema escuro. */
+.logo-procar {
+  filter: var(--logo-filtro);
+}
+
+/* Foco visível e consistente para acessibilidade (teclado). */
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Respeita quem pediu menos movimento no sistema (acessibilidade: transições
+   podem causar desconforto/enjoo). Anula animações e o scroll suave do wizard,
+   sem alterar layout nem cor — a interface continua idêntica, só imediata. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------------
+   Faixa fixa no topo das telas autenticadas (AppHeader).
+   ------------------------------------------------------------------------ */
+.app-topo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--sombra);
+}
+.app-topo-in {
+  max-width: 1160px;
+  margin: 0 auto;
+  /* Altura mínima é uma CONSTANTE fixa, não `var(--topo-altura)`: essa
+     variável é escrita pelo AppHeader.tsx (ResizeObserver) com a altura JÁ
+     medida da faixa, para as PÁGINAS reservarem o espaço certo (ver
+     .guia/padding-top). Se o min-height desta própria linha lesse a mesma
+     variável, cada medição realimentaria o tamanho do elemento que está
+     sendo medido — um loop que fez a faixa crescer sem limite na prática. */
+  min-height: 60px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+  /* Com muitos links (gestor/admin: Usuários, Monitoramento, Minha senha,
+     Sair...) uma linha só não cabe em telas estreitas. Em vez de estourar/
+     encavalar os itens (nowrap sem espaço sobrando), as ações quebram para
+     uma 2ª linha — a altura real da faixa (1 ou 2 linhas) é medida no
+     AppHeader.tsx e escrita em --topo-altura, então o espaço reservado
+     abaixo sempre acompanha. */
+  flex-wrap: wrap;
+}
+@media (min-width: 800px) {
+  .app-topo-in {
+    padding: 10px 22px;
+  }
+}
+.app-topo-esq {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: none;
+}
+.app-topo-titulo {
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Em telas estreitas o título cede espaço para a logo e as ações. */
+@media (max-width: 560px) {
+  .app-topo-titulo {
+    display: none;
+  }
+}
+@media (min-width: 800px) {
+  .app-topo-titulo {
+    font-size: 0.82rem;
+    letter-spacing: 2px;
+  }
+}
+.app-topo-dir {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  /* Cresce para empurrar o grupo à direita quando cabe na mesma linha da
+     logo, e quebra para baixo (linha inteira) quando não cabe. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Em telas bem estreitas, chips um pouco mais compactos reduzem quantas
+   quebras de linha são necessárias. */
+@media (max-width: 480px) {
+  .app-topo-dir {
+    gap: 6px;
+  }
+  .app-topo-btn,
+  .app-topo-link {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+}
+.app-topo-user {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 22vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .app-topo-user {
+    display: none; /* nome cede espaço no celular; permanece no tablet+ */
+  }
+}
+.app-topo-btn,
+.app-topo-link {
+  background: transparent;
+  border: 1px solid var(--border-forte);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-topo-link {
+  text-decoration: none;
+}
+.app-topo-btn:hover,
+.app-topo-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Botão de alternância de tema (sol/lua). */
+.tema-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--border-forte);
+  color: var(--heading);
+  border-radius: 9px;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.tema-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media print {
+  .app-topo {
+    display: none !important;
+  }
+}

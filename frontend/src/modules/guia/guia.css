@@ -1,0 +1,725 @@
+/* Guia de Atendimento — layout das duas telas (wizard + guia gerado).
+   Todas as cores vêm dos tokens de tema (ver styles/global.css). */
+
+.guia {
+  min-height: 100vh;
+  min-height: 100dvh; /* considera as barras dinâmicas do celular (igual ao body) */
+  /* Reserva o espaço da faixa fixa (AppHeader) + respiro. A altura real é
+     medida em runtime pelo AppHeader.tsx (a faixa pode ter 1 ou 2 linhas). */
+  padding-top: calc(var(--topo-altura) + 10px);
+  padding-bottom: 34px;
+}
+
+.guia-erro,
+.guia-carregando {
+  max-width: 1100px;
+  margin: 16px auto;
+  padding: 14px 16px;
+  border-radius: var(--raio);
+}
+.guia-erro {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.guia-carregando {
+  color: var(--text-muted);
+}
+
+/* ===== Elementos de seleção reutilizados (chips, cores, cabeçalhos) ===== */
+.guia-passo-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--heading);
+  margin-bottom: 12px;
+}
+.guia-passo-num {
+  background: var(--accent-solid);
+  color: var(--on-accent);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+.guia-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.guia-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.guia-busca-modelo {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 10px;
+  min-height: 42px;
+}
+/* Listas grandes (FIPE): rolagem interna para não estourar a tela. */
+.guia-chips-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Chips (carro/modelo) — alvos de toque grandes p/ tablet */
+.chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 2px solid var(--border-forte);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 46px;
+  font-weight: 700;
+  color: var(--text);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip small {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+.chip-ativo {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--on-accent);
+}
+.chip-ativo:hover {
+  border-color: var(--accent-solid);
+}
+.chip-ativo small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Cores */
+.guia-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cor {
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 58px;
+}
+.cor-bola {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border-forte);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+.cor-ativa .cor-bola {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px var(--accent);
+}
+.cor-nome {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.cor-ativa .cor-nome {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ===== Wizard do atendimento (tela 1) ===== */
+/* Coluna central estreita, campos surgindo conforme o preenchimento. */
+.wizard {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  display: grid;
+  gap: 12px;
+}
+/* Mesma proteção do guia gerado: nenhum passo do wizard pode esticar a
+   página além da viewport por causa do próprio conteúdo (listas de modelos
+   da FIPE com nomes longos, chips de marca etc.). */
+.wizard > * {
+  min-width: 0;
+}
+@media (min-width: 800px) {
+  .wizard {
+    padding: 28px 24px 56px;
+    gap: 16px;
+  }
+  .wizard-passo {
+    padding: 20px;
+  }
+}
+.wizard-marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 14px 0 6px;
+}
+.wizard-marca-nome {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--heading);
+}
+.wizard-marca-sub {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 34ch;
+  text-wrap: balance;
+}
+/* Cada passo entra com um fade/slide suave quando é liberado. */
+.wizard-passo {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 16px;
+  animation: wizard-entrar 0.25s ease-out;
+}
+@keyframes wizard-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wizard-cliente {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+/* Select do setor com a mesma cara dos demais campos do wizard. */
+.wizard-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  min-height: 52px;
+  font-size: 1rem;
+  color: var(--text);
+}
+.chip-marca {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.wizard-acao {
+  animation: wizard-entrar 0.25s ease-out;
+}
+.btn-gerar {
+  font-size: 1.1rem;
+  min-height: 56px;
+}
+
+/* ===== Guia gerado (tela 2) ===== */
+.guia-resultado {
+  padding-top: 8px;
+}
+.atendimento-capa-wrap {
+  max-width: 1100px;
+  margin: 0 auto 8px;
+  padding: 0 16px;
+}
+.atendimento-capa {
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+/* Ações da capa (Salvar em PDF / novo atendimento). */
+.atendimento-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: none;
+}
+/* Celular: os botões da capa ocupam a linha inteira (alvo de toque). */
+@media (max-width: 600px) {
+  .atendimento-acoes {
+    width: 100%;
+  }
+  .btn-novo {
+    width: 100%;
+  }
+}
+.atendimento-logo {
+  flex: none;
+}
+.atendimento-info {
+  /* 200px é a largura DESEJADA (abaixo disso a capa quebra em linhas), não um
+     piso rígido: com `min-width: 200px` a capa não cabia em telas de 320px. */
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.atendimento-rotulo {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.atendimento-cliente {
+  font-size: 1.45rem;
+  color: var(--heading);
+  margin: 2px 0 8px;
+  line-height: 1.2;
+}
+.atendimento-veiculo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+.atendimento-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cor-bola-mini {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+}
+.btn-novo {
+  flex: none;
+}
+
+/* Material de apoio do Manual de Vendas (contorno de objeções e dicas). */
+.guia-apoio {
+  max-width: 1100px;
+  margin: 16px auto 0;
+  padding: 0 16px;
+  display: grid;
+  gap: 12px;
+}
+/* Mesmo motivo do .guia-conteudo > *: itens de grid não encolhem sozinhos
+   abaixo do mínimo do conteúdo (aqui, o roteiro completo e as objeções). */
+.guia-apoio > * {
+  min-width: 0;
+}
+.apoio-bloco {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 4px 16px;
+}
+.apoio-titulo {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--heading);
+  padding: 12px 0;
+}
+.apoio-lista {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 14px;
+}
+.apoio-item {
+  border-left: 3px solid var(--accent);
+  background: var(--soft-bg);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.apoio-item-titulo {
+  font-weight: 700;
+  color: var(--soft-text);
+  margin-bottom: 4px;
+}
+.apoio-item-texto {
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: justify;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+.guia-rodape {
+  max-width: 1100px;
+  margin: 20px auto 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* CTAs do rodapé com a mesma altura do botão de gerar (consistência). */
+.btn-novo-rodape,
+.btn-pdf-rodape {
+  width: 100%;
+  min-height: 56px;
+}
+@media (min-width: 900px) {
+  .guia-rodape {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+  .btn-novo-rodape,
+  .btn-pdf-rodape {
+    width: auto;
+  }
+}
+
+/* Conteúdo do guia: blocos empilhados (roteiro, depois serviços) — cada um
+   ocupa a largura toda, o que dá mais espaço para o seletor de serviços. */
+.guia-conteudo {
+  max-width: 1100px;
+  margin: 8px auto;
+  padding: 0 16px;
+  display: grid;
+  gap: 28px;
+}
+/* Itens de grid nascem com `min-width: auto`, ou seja, NÃO encolhem abaixo do
+   tamanho mínimo do próprio conteúdo. Como o seletor de serviços lá dentro é
+   uma fila horizontal de chips `flex: none; min-width: 190px` (que deveria
+   rolar sozinha no celular), esse mínimo passava de 1000px e esticava a
+   página inteira além da viewport — o `overflow-x: hidden` do body então
+   cortava o conteúdo à direita em vez de deixar rolar. `min-width: 0` devolve
+   ao bloco o direito de encolher até a largura da tela, e a rolagem volta a
+   acontecer onde deve: dentro do seletor. */
+.guia-conteudo > * {
+  min-width: 0;
+}
+.guia-col-titulo {
+  font-size: 1.05rem;
+  color: var(--heading);
+  margin: 8px 0 12px;
+}
+.guia-vazio {
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  padding: 20px;
+  box-shadow: var(--sombra);
+}
+
+/* Roteiro */
+.roteiro {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.roteiro-etapa {
+  display: flex;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 14px 16px;
+}
+.roteiro-num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.roteiro-corpo {
+  min-width: 0;
+}
+.roteiro-titulo {
+  font-weight: 700;
+  color: var(--text);
+}
+.roteiro-instrucao {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 3px 0 8px;
+  line-height: 1.55;
+  text-align: justify;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.roteiro-frase {
+  background: var(--soft-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-style: italic;
+  color: var(--soft-text);
+  line-height: 1.55;
+}
+
+/* Selo pequeno reutilizado no cabeçalho do serviço (ex.: "Pintura protegida"). */
+.oferta-selo {
+  background: var(--soft-bg);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ===== "O que ofertar" — seletor de serviços + resumo dinâmico ===== */
+
+/* Tiras de serviço: rolagem horizontal no celular, grade a partir do tablet. */
+.servicos-seletor {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+  /* Reforça que a rolagem horizontal é DESTE elemento e que ele nunca
+     empurra a largura do bloco pai (ver .guia-conteudo > *).
+     (Sem `touch-action` aqui de propósito: o padrão `auto` já rola os chips
+     na horizontal e deixa o gesto vertical passar para a página — fixar
+     `pan-y`, por exemplo, mataria a rolagem dos chips.) */
+  min-width: 0;
+}
+@media (min-width: 700px) {
+  .servicos-seletor {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    overflow: visible;
+  }
+}
+.servico-chip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 190px;
+  min-height: 56px;
+  background: var(--surface);
+  border: 2px solid var(--border-forte);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--text);
+  font-weight: 700;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+@media (min-width: 700px) {
+  .servico-chip {
+    min-width: 0;
+  }
+}
+.servico-chip:hover {
+  border-color: var(--accent);
+}
+/* Recomendado: borda e selo em destaque mesmo quando não está selecionado. */
+.servico-chip-recomendado {
+  border-color: var(--accent);
+}
+.servico-chip-selo {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.servico-chip-nome {
+  line-height: 1.3;
+}
+.servico-chip-ativo {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--on-accent);
+}
+.servico-chip-ativo .servico-chip-selo {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Detalhe do serviço: só o ativo fica visível em tela; os demais ficam no
+   DOM (display: none) para que "Salvar em PDF" imprima todos eles. */
+.servico-detalhe {
+  display: none;
+}
+.servico-detalhe-ativo {
+  display: block;
+}
+.servico-detalhe + .servico-detalhe {
+  margin-top: 14px;
+}
+
+/* Card do Resumo Inteligente — o CONTEÚDO PRINCIPAL da tela: uma narrativa
+   contínua (roteiro personalizado + argumento do serviço em foco), não uma
+   lista de passos. Fundo "de fala" (mesmo tratamento do .roteiro-frase),
+   porque é literalmente o que o consultor vai falar. Borda mais forte
+   quando o serviço é recomendado para este atendimento. */
+.resumo-inteligente {
+  background: var(--soft-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 18px;
+}
+.servico-detalhe-recomendado .resumo-inteligente {
+  border: 2px solid var(--accent);
+  border-left: 4px solid var(--accent);
+}
+.resumo-inteligente-cab {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.resumo-inteligente-nome {
+  font-size: 1.15rem;
+  color: var(--heading);
+  margin: 0;
+  flex: 1;
+  min-width: 140px;
+}
+.resumo-inteligente-selo {
+  display: inline-block;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.resumo-inteligente-texto p {
+  color: var(--soft-text);
+  font-size: 1rem;
+  line-height: 1.7;
+  text-align: justify;
+  hyphens: auto;
+  /* Nomes de modelo da FIPE podem trazer tokens longos sem espaço; com
+     `justify` um token maior que a coluna vazaria o cartão no celular. */
+  overflow-wrap: break-word;
+  margin: 0 0 14px;
+}
+.resumo-inteligente-texto p:last-child {
+  margin-bottom: 0;
+}
+.resumo-inteligente-texto p:first-child {
+  font-weight: 600;
+}
+
+/* Conteúdo original do manual (preservado), recolhível — mesmo padrão do
+   bloco de apoio (Contorno de objeções / Dicas de ouro). */
+.servico-original {
+  margin-top: 10px;
+}
+
+/* =====================================================================
+   Impressão / "Salvar em PDF" (botão da tela do guia → window.print()).
+   O PDF fica só no dispositivo — nada é enviado ao servidor.
+   ===================================================================== */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body::before {
+    display: none; /* sem imagem de fundo no papel */
+  }
+  /* Sem a faixa fixa: o conteúdo começa no topo da folha. */
+  .guia {
+    padding-top: 0;
+  }
+  /* Esconde a "moldura" do app: botões e mensagens. */
+  .atendimento-acoes,
+  .guia-rodape,
+  .guia-erro,
+  .guia-carregando {
+    display: none !important;
+  }
+  /* Cartões sem sombra e com borda sutil (sombra vira borrão no papel). */
+  .atendimento-capa,
+  .roteiro-etapa,
+  .resumo-inteligente,
+  .apoio-bloco {
+    box-shadow: none !important;
+    border: 1px solid #cbd2dc;
+  }
+  /* Blocos empilhados (formato A4). */
+  .guia-conteudo {
+    display: block;
+  }
+  .guia-bloco + .guia-bloco {
+    margin-top: 14px;
+  }
+  /* O seletor é interativo (tela); no papel, todos os serviços aparecem
+     por completo, um abaixo do outro — não só o que estava selecionado. */
+  .servicos-seletor,
+  .guia-hint {
+    display: none !important;
+  }
+  .servico-detalhe {
+    display: block !important;
+  }
+  .servico-detalhe + .servico-detalhe {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed #cbd2dc;
+  }
+  /* Evita cortar um item no meio da quebra de página. */
+  .roteiro-etapa,
+  .resumo-inteligente,
+  .apoio-item,
+  .atendimento-capa {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Blocos de apoio (e conteúdo original do serviço) sempre expandidos e
+     sem a setinha de recolher. */
+  .apoio-titulo {
+    list-style: none;
+  }
+  .apoio-titulo::-webkit-details-marker {
+    display: none;
+  }
+}

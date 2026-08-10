@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>PROCAR — Manual de Vendas Digital</title>
+    <!-- Aplica o tema salvo (ou o do sistema) antes de pintar, evitando o
+         "flash" de tema errado no primeiro frame. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('procar.tema');
+          if (t !== 'claro' && t !== 'escuro') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'escuro'
+              : 'claro';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'claro');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

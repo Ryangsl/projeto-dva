@@ -1,0 +1,187 @@
+/* Estilos utilitários compartilhados (cartões, campos, botões, login). Todos
+   os valores de cor vêm dos tokens de tema (ver global.css). */
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 20px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.campo label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.campo input,
+.campo select,
+.campo textarea {
+  padding: 12px;
+  border: 1px solid var(--border-forte);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 46px; /* alvo de toque confortável no tablet */
+}
+.campo textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 18px;
+  font-weight: 600;
+  font-size: 1rem;
+  min-height: 48px;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+.btn-primario {
+  background: var(--accent-solid);
+  color: var(--on-accent);
+}
+.btn-primario:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-primario:disabled {
+  opacity: 0.6;
+}
+.btn-secundario {
+  background: var(--surface-2);
+  color: var(--heading);
+  border: 1px solid var(--border-forte);
+}
+.btn-secundario:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-bloco {
+  width: 100%;
+}
+
+.erro {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.secao-titulo {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 700;
+  margin: 18px 0 10px;
+}
+
+/* -----------------------------------------------------------------------
+   Tela de login — centralizada, com logo em destaque e frase de propósito.
+   ----------------------------------------------------------------------- */
+.login-wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 24px;
+}
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+/* Frase curta de propósito, logo abaixo da marca. */
+.login-tagline {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  max-width: 320px;
+  margin: 0 auto 4px;
+  text-wrap: balance;
+}
+.login-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0 18px;
+}
+.login-card .campo:first-of-type {
+  margin-top: 2px;
+}
+
+/* Primeiro acesso: título de boas-vindas + checklist da nova senha. */
+.primeiro-titulo {
+  text-align: center;
+  color: var(--heading);
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 4px 0 2px;
+}
+.senha-regras {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 18px;
+  display: grid;
+  gap: 6px;
+}
+.senha-regras li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+.senha-regras li.ok {
+  color: var(--ok);
+}
+.senha-regra-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: inherit;
+}
+.senha-regras li.ok .senha-regra-marca {
+  background: var(--accent-fill);
+  color: var(--ok);
+}
+
+/* Toggle de tema flutuante no canto (login não tem faixa fixa). */
+.tema-flutuante {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  box-shadow: var(--sombra);
+}
