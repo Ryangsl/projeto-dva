@@ -110,7 +110,7 @@
 }
 
 /* -----------------------------------------------------------------------
-   Tela de login — centralizada, com logo em destaque e frase de propósito.
+   Tela de login — centralizada, com logo em destaque.
    ----------------------------------------------------------------------- */
 .login-wrap {
   min-height: 100vh;
@@ -140,7 +140,9 @@
   justify-content: center;
   margin-bottom: 14px;
 }
-/* Frase curta de propósito, logo abaixo da marca. */
+/* Texto curto auxiliar abaixo de um título — usada em Primeiro Acesso,
+   Minha Senha e na tela de erro (ErrorBoundary). A tela de Login em si não
+   usa mais esta classe (frase de propósito removida a pedido do cliente). */
 .login-tagline {
   text-align: center;
   color: var(--text-muted);
@@ -150,10 +152,13 @@
   margin: 0 auto 4px;
   text-wrap: balance;
 }
+/* Sem a frase de propósito abaixo da logo na tela de Login, este separador
+   ganhou mais respiro nas duas margens para o cartão não ficar com a marca
+   "grudada" nos campos. */
 .login-sep {
   height: 1px;
   background: var(--border);
-  margin: 20px 0 18px;
+  margin: 30px 0 26px;
 }
 .login-card .campo:first-of-type {
   margin-top: 2px;

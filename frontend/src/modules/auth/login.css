@@ -1,10 +1,13 @@
 /* Tela de login — layout split-panel (foto do veículo + formulário),
-   adaptado do modelo visual enviado pelo cliente. Fica em branch própria
-   (design/login-redesign): ao contrário do resto do app, este visual é
-   FIXO escuro — não reage ao ThemeToggle (o modelo de referência não tem
-   alternância de tema) — por isso usa cores hardcoded em vez dos tokens de
-   --bg/--surface/etc. de global.css. */
+   adaptado do modelo visual enviado pelo cliente. FIXO escuro — não reage ao
+   ThemeToggle (o modelo de referência não tem alternância de tema) — por
+   isso usa cores hardcoded em vez dos tokens de --bg/--surface/etc. de
+   global.css.
 
+   Mobile-first: `.login-tela-imagem` fica escondida por padrão (numa tela de
+   celular a foto só rouba espaço dos campos) e só aparece a partir de
+   ~860px, quando sobra largura de verdade para as duas colunas lado a lado
+   sem apertar o formulário. */
 .login-tela {
   min-height: 100vh;
   min-height: 100dvh;
@@ -12,10 +15,7 @@
   background: #060a10;
 }
 
-/* ===== Painel da foto (metade esquerda) =====
-   Mobile-first: escondido por padrão. Numa tela de celular a foto só rouba
-   espaço dos campos — reaparece a partir de ~860px, quando sobra largura de
-   verdade para as duas colunas lado a lado sem apertar o formulário. */
+/* ===== Painel da foto (metade esquerda, só a partir de ~860px) ===== */
 .login-tela-imagem {
   position: relative;
   flex: 1 1 55%;
@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px 20px;
+  padding: 32px 20px;
 }
 .login-tela-card {
   width: 100%;
@@ -118,19 +118,14 @@
 .login-tela-logo-img {
   filter: brightness(0) invert(1) !important;
 }
+/* Sem a frase de propósito abaixo da logo (removida a pedido do cliente),
+   este espaçador é o único respiro entre a marca e os campos — mais
+   generoso que o de um cartão com legenda, pro bloco não ficar "grudado". */
 .login-tela-sep {
   width: 64px;
   height: 2px;
   background: linear-gradient(90deg, transparent, #2f8ff0, transparent);
-  margin: 16px auto 22px;
-}
-.login-tela-tagline {
-  text-align: center;
-  color: #97a4b6;
-  font-size: 0.96rem;
-  line-height: 1.5;
-  margin: 0 0 26px;
-  text-wrap: balance;
+  margin: 16px auto 34px;
 }
 
 .login-tela-erro {

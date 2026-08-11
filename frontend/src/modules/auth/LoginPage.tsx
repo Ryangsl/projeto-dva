@@ -122,9 +122,6 @@ export function LoginPage() {
             <Logo height={56} className="login-tela-logo-img" />
           </div>
           <div className="login-tela-sep" />
-          <p className="login-tela-tagline">
-            Gerenciamento e distribuição de veículos do Grupo ProCar.
-          </p>
 
           {erro && (
             <div className="login-tela-erro" role="alert">
