@@ -34,10 +34,7 @@ export async function verificarChassi(req: Request, res: Response): Promise<void
 export async function criar(req: Request, res: Response): Promise<void> {
   const dados = criarSchema.parse(req.body);
   const u = req.user!;
-  const veiculo = await veiculosService.criar(dados, arquivosDoCorpo(req), {
-    sub: u.sub,
-    perfil: u.perfil,
-  });
+  const veiculo = await veiculosService.criar(dados, arquivosDoCorpo(req), { sub: u.sub });
   res.status(201).json({ veiculo });
 }
 
@@ -53,21 +50,10 @@ export async function listar(req: Request, res: Response): Promise<void> {
   res.json(await veiculosService.listar(filtros));
 }
 
-// "Meus Registros": mesmos filtros de listar(), mas o escopo por usuário
-// nunca vem do cliente — é sempre o usuário autenticado. Disponível a
-// qualquer perfil (Operador vê só o que ele mesmo cadastrou; Admin também
-// tem a própria versão desta tela, mesma regra).
-export async function meusRegistros(req: Request, res: Response): Promise<void> {
-  const filtros = listarSchema.parse(req.query);
-  const u = req.user!;
-  res.json(await veiculosService.listar({ ...filtros, usuarioId: u.sub }));
-}
-
 export async function buscarPorId(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) throw badRequest('Id inválido');
-  const u = req.user!;
-  res.json({ veiculo: await veiculosService.buscarPorId(id, { perfil: u.perfil, usuarioId: u.sub }) });
+  res.json({ veiculo: await veiculosService.buscarPorId(id) });
 }
 
 export async function excluir(req: Request, res: Response): Promise<void> {

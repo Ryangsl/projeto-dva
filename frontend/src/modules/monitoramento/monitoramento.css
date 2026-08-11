@@ -1,5 +1,6 @@
-/* Monitoramento (Admin) — KPIs, gráfico de veículos/dia, rankings e tabela.
-   Mobile-first: a base é o layout de celular, min-width aumenta colunas. */
+/* Monitoramento (todos os perfis) — KPIs, gráfico de veículos/dia, rankings
+   e tabela. Mobile-first: a base é o layout de celular, min-width aumenta
+   colunas. */
 
 .dash {
   max-width: 1100px;

@@ -13,9 +13,6 @@ import { VeiculoPage } from './modules/veiculos/VeiculoPage';
 const MonitoramentoPage = lazy(() =>
   import('./modules/monitoramento/MonitoramentoPage').then((m) => ({ default: m.MonitoramentoPage })),
 );
-const MeusRegistrosPage = lazy(() =>
-  import('./modules/monitoramento/MeusRegistrosPage').then((m) => ({ default: m.MeusRegistrosPage })),
-);
 const UsuariosPage = lazy(() =>
   import('./modules/usuarios/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
 );
@@ -29,21 +26,13 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         {/* Cadastro de veículo é a tela principal do produto */}
         <Route path="/veiculos/novo" element={<VeiculoPage />} />
-        {/* Histórico dos próprios registros — qualquer perfil */}
-        <Route
-          path="/meus-registros"
-          element={
-            // fallback null (e não um spinner): o chunk vem da mesma origem e
-            // resolve em milissegundos — um spinner só piscaria na tela.
-            <Suspense fallback={null}>
-              <MeusRegistrosPage />
-            </Suspense>
-          }
-        />
-        {/* Monitoramento de veículos cadastrados (perfil admin) */}
+        {/* Monitoramento de veículos cadastrados — todos os perfis autenticados
+            (excluir continua restrito ao Admin, controlado na própria tela) */}
         <Route
           path="/monitoramento"
           element={
+            // fallback null (e não um spinner): o chunk vem da mesma origem e
+            // resolve em milissegundos — um spinner só piscaria na tela.
             <Suspense fallback={null}>
               <MonitoramentoPage />
             </Suspense>

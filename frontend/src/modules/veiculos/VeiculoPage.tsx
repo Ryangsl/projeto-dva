@@ -56,18 +56,13 @@ export function VeiculoPage() {
         titulo="Cadastro de Veículo"
         acoes={
           <>
-            <Link to="/meus-registros" className="app-topo-link">
-              Meus Registros
+            <Link to="/monitoramento" className="app-topo-link">
+              Monitoramento
             </Link>
             {usuario?.perfil === 'admin' && (
-              <>
-                <Link to="/usuarios" className="app-topo-link">
-                  Usuários
-                </Link>
-                <Link to="/monitoramento" className="app-topo-link">
-                  Monitoramento
-                </Link>
-              </>
+              <Link to="/usuarios" className="app-topo-link">
+                Usuários
+              </Link>
             )}
           </>
         }

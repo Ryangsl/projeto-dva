@@ -1,10 +1,10 @@
 /* Estilos do componente Modal — colocados junto ao componente (em vez de no
-   CSS de uma página específica) de propósito: o Modal é usado em Usuários,
-   Centros E Monitoramento (chunks lazy separados), e uma tela que nunca
-   importasse o CSS "certo" renderizava o diálogo sem posicionamento, sem
-   largura máxima e sem controle de overflow — bug real já visto em produção
-   (o modal "tomava a tela toda" e travava o scroll). Importar aqui garante
-   que o Modal sempre tem seu próprio estilo, não importa de onde é aberto. */
+   CSS de uma página específica) de propósito: o Modal é usado em Usuários E
+   Monitoramento (chunks lazy separados), e uma tela que nunca importasse o
+   CSS "certo" renderizava o diálogo sem posicionamento, sem largura máxima e
+   sem controle de overflow — bug real já visto em produção (o modal "tomava
+   a tela toda" e travava o scroll). Importar aqui garante que o Modal sempre
+   tem seu próprio estilo, não importa de onde é aberto. */
 
 .usuarios-modal-fundo {
   position: fixed;

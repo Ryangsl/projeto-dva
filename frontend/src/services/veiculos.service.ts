@@ -66,14 +66,6 @@ export async function listarVeiculos(filtros: FiltrosListagem): Promise<Listagem
   return data;
 }
 
-// "Meus Registros": mesma listagem, mas escopada ao usuário logado (Operador
-// ou Admin) — o backend nunca aceita o escopo do cliente, é sempre quem está
-// autenticado.
-export async function listarMeusRegistros(filtros: FiltrosListagem): Promise<ListagemVeiculos> {
-  const { data } = await api.get<ListagemVeiculos>('/veiculos/meus-registros', { params: filtros });
-  return data;
-}
-
 export async function buscarVeiculoPorId(id: number): Promise<VeiculoDetalhe> {
   const { data } = await api.get<{ veiculo: VeiculoDetalhe }>(`/veiculos/${id}`);
   return data.veiculo;

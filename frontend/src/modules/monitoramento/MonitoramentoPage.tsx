@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { AppHeader } from '../../components/AppHeader';
 import { buscarDashboard, type ContagemPorGrupo, type DashboardVeiculos, type PeriodoDias } from '../../services/monitoramento.service';
 import { GraficoVeiculosPorDia } from './GraficoVeiculosPorDia';
@@ -43,10 +44,13 @@ function RankingCard({ titulo, itens }: { titulo: string; itens: ContagemPorGrup
   );
 }
 
-// Painel do Admin: indicadores de cadastro de veículos (não mais uso/sessão,
-// que era o antigo dashboard do Guia). Polling leve de 30s, mesmo padrão já
-// validado no projeto para telas de monitoramento.
+// Indicadores de cadastro de veículos, visível a qualquer perfil autenticado
+// (mostra os registros de todo mundo — só Admin pode excluir, ver
+// VeiculosTabela). Polling leve de 30s, mesmo padrão já validado no projeto
+// para telas de monitoramento.
 export function MonitoramentoPage() {
+  const { usuario } = useAuth();
+  const souAdmin = usuario?.perfil === 'admin';
   const [periodo, setPeriodo] = useState<PeriodoDias>(30);
   const [dash, setDash] = useState<DashboardVeiculos | null>(null);
   const [erro, setErro] = useState('');
@@ -84,12 +88,11 @@ export function MonitoramentoPage() {
         titulo="Monitoramento"
         acoes={
           <>
-            <Link to="/meus-registros" className="app-topo-link">
-              Meus Registros
-            </Link>
-            <Link to="/usuarios" className="app-topo-link">
-              Usuários
-            </Link>
+            {souAdmin && (
+              <Link to="/usuarios" className="app-topo-link">
+                Usuários
+              </Link>
+            )}
             <Link to="/veiculos/novo" className="app-topo-link">
               ← Cadastrar veículo
             </Link>

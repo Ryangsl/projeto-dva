@@ -3,7 +3,6 @@ import { basename, join } from 'node:path';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database.js';
 import { env } from '../../config/env.js';
-import type { Perfil } from '../../middlewares/auth.js';
 import { badRequest, notFound } from '../../shared/http-error.js';
 import { gerarProtocolo } from '../../shared/protocolo.js';
 import { MARCAS_DVA } from './marcas-dva.js';
@@ -113,7 +112,6 @@ export interface ArquivosVeiculo {
 
 export interface UsuarioAutenticado {
   sub: number;
-  perfil: Perfil;
 }
 
 const SELECT_DETALHE = `
@@ -247,9 +245,6 @@ export async function criar(
 export interface FiltrosListagem {
   chassi?: string;
   marcaId?: number;
-  // Escopo de "Meus Registros" — nunca aceito do cliente, sempre injetado
-  // pelo controller a partir do usuário autenticado (ver meusRegistros()).
-  usuarioId?: number;
   pagina?: number;
   limite?: number;
 }
@@ -272,10 +267,6 @@ export async function listar(filtros: FiltrosListagem): Promise<ListagemVeiculos
     condicoes.push('v.marca_id = ?');
     parametros.push(filtros.marcaId);
   }
-  if (filtros.usuarioId) {
-    condicoes.push('v.usuario_id = ?');
-    parametros.push(filtros.usuarioId);
-  }
   const where = condicoes.length > 0 ? `WHERE ${condicoes.join(' AND ')}` : '';
 
   const limite = Math.min(Math.max(filtros.limite ?? 20, 1), 100);
@@ -296,21 +287,10 @@ export async function listar(filtros: FiltrosListagem): Promise<ListagemVeiculos
   return { veiculos: rows.map(mapearResumo), total, pagina, limite };
 }
 
-// `escopo` é omitido nas chamadas internas (ex.: logo após `criar()`, onde
-// quem acabou de cadastrar sempre pode ver o próprio registro). Quando
-// informado (toda chamada vinda do controller), aplica a mesma regra de
-// "Meus Registros": Admin vê qualquer veículo; Operador só o que ele mesmo
-// cadastrou — 404 para o resto, sem revelar se o id existe.
-export async function buscarPorId(
-  id: number,
-  escopo?: { perfil: Perfil; usuarioId: number },
-): Promise<VeiculoDetalhe> {
+export async function buscarPorId(id: number): Promise<VeiculoDetalhe> {
   const [rows] = await pool.query<VeiculoRow[]>(`${SELECT_DETALHE} WHERE v.id = ? LIMIT 1`, [id]);
   const veiculo = rows[0];
   if (!veiculo) throw notFound('Veículo não encontrado');
-  if (escopo && escopo.perfil !== 'admin' && veiculo.usuario_id !== escopo.usuarioId) {
-    throw notFound('Veículo não encontrado');
-  }
   return mapearDetalhe(veiculo);
 }
 

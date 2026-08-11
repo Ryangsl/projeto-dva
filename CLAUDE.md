@@ -14,11 +14,11 @@ O histórico detalhado da fase "Guia PROCAR" (ADRs e changelog de 2026-07-02 a 2
 
 Um **Operador** registra um veículo que será enviado a uma concessionária: informa marca, modelo, chassi, anexa fotos e vídeo, escreve observações e indica o destino. O **Chassi é o identificador único do veículo** no sistema — não existem dois cadastros para o mesmo chassi. Cada cadastro gera automaticamente um **protocolo** (recibo curto da operação).
 
-O **Admin** acompanha tudo numa tela de **Monitoramento**: quantos veículos foram cadastrados (total, hoje, por período), a distribuição por marca, uma lista pesquisável por chassi e o detalhe completo de cada veículo (fotos + vídeo + dados). Tanto Operador quanto Admin têm uma tela de **Meus Registros** — histórico dos veículos que o próprio usuário cadastrou. O Admin também gerencia os **Usuários** (operadores).
+Qualquer usuário autenticado — **Operador ou Admin** — acompanha tudo numa tela de **Monitoramento**: quantos veículos foram cadastrados (total, hoje, por período), a distribuição por marca, uma lista pesquisável por chassi com **todos** os veículos (de qualquer usuário) e o detalhe completo de cada um (fotos + vídeo + dados). A única diferença do Admin nessa tela é a permissão para **excluir** um registro — não existe uma versão "só meus registros" separada. O Admin também gerencia os **Usuários** (operadores).
 
 ### Personas
-- **Operador**: cadastra veículos que serão enviados a uma concessionária. Sem vínculo com nenhuma unidade/centro — qualquer operador cadastra para qualquer destino.
-- **Admin**: gerencia usuários e acompanha o monitoramento de todos os veículos cadastrados. Único perfil administrativo do MVP.
+- **Operador**: cadastra veículos que serão enviados a uma concessionária e acompanha o Monitoramento de todos os veículos cadastrados (não só os próprios). Sem vínculo com nenhuma unidade/centro — qualquer operador cadastra para qualquer destino. Não pode excluir registros.
+- **Admin**: tudo que o Operador faz, mais: gerencia usuários e pode excluir veículos cadastrados por qualquer pessoa. Único perfil administrativo do MVP.
 
 > ℹ️ O sistema já teve os conceitos de **Cor** e **Centro de Distribuição** (removidos em 2026-08-10 a pedido do cliente — ver §9/§10). Se algo neste documento parecer contraditório, o histórico do git é a fonte de verdade sobre quando cada coisa mudou.
 
@@ -52,9 +52,8 @@ Diretrizes transversais:
 | — | Base: auth + esqueleto | ✅ Reaproveitado do projeto PROCAR |
 | ★ | **Cadastro de veículo (wizard) + upload de fotos/vídeo + protocolo automático** | ✅ Feito |
 | ★ | **Gerenciamento de usuários (Admin cria/edita/reseta senha de Operadores)** | ✅ Feito |
-| ★ | **Monitoramento: KPIs, gráfico por dia, distribuição por marca, tabela + busca por chassi, detalhe com fotos/vídeo, exclusão (admin)** | ✅ Feito |
-| ★ | **Meus Registros: histórico dos próprios veículos cadastrados (Operador e Admin)** | ✅ Feito |
-| P2 | Melhorias de UX (validação de VIN real, notificações, status do envio) | ⏳ Fora do MVP |
+| ★ | **Monitoramento: KPIs, gráfico por dia, distribuição por marca, tabela + busca por chassi (todos os veículos, todos os perfis), detalhe com fotos/vídeo, exclusão (admin)** | ✅ Feito |
+| P2 | Melhorias de UX (validação de VIN real, notificações, status do envio, edição de veículo) | ⏳ Fora do MVP |
 
 ## 5. Arquitetura
 
@@ -73,7 +72,7 @@ procar-dva/
 │   │   │   ├── veiculos/     # ★ cadastro de veículo + upload (multer) + catálogo marca/modelo
 │   │   │   │   ├── marcas-dva.ts   # lista fixa das 7 marcas do grupo
 │   │   │   │   └── upload.ts       # config do multer (disco local)
-│   │   │   └── monitoramento/# ★ dashboard agregando a tabela `veiculos`
+│   │   │   └── monitoramento/# ★ dashboard agregando a tabela `veiculos`, aberto a todos os perfis
 │   │   ├── routes/           # agregador de rotas dos módulos
 │   │   ├── app.ts            # instância express + middlewares + /api/uploads
 │   │   └── server.ts         # bootstrap (listen)
@@ -88,7 +87,7 @@ procar-dva/
 │   │   │   ├── auth/         # Login, PrimeiroAcesso, AlterarSenha (sem mudança de fluxo)
 │   │   │   ├── usuarios/     # gestão de operadores (admin)
 │   │   │   ├── veiculos/     # ★ wizard de cadastro + confirmação
-│   │   │   └── monitoramento/# ★ dashboard + tabela + detalhe + Meus Registros
+│   │   │   └── monitoramento/# ★ dashboard + tabela + detalhe (todos os perfis)
 │   │   ├── services/         # api client (axios) + services por módulo
 │   │   ├── contexts/         # AuthContext, ThemeContext
 │   │   ├── styles/           # global.css (tokens de tema) + ui.css
@@ -127,12 +126,11 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 - `GET /api/veiculos/opcoes` — marcas do DVA (com modelos aninhados, via cross-database). Base do formulário de cadastro.
 - `GET /api/veiculos/chassi/:chassi` — pré-checagem de duplicidade (`{ existe: boolean }`), qualquer perfil autenticado.
 - `POST /api/veiculos` — cria o veículo. `multipart/form-data`: campos de texto (`chassi`, `marcaId`, `modeloId?`, `destino?`, `observacoes?`) + `fotos[]` (até 8, imagem) + `video` (1, vídeo). Chassi duplicado → 400. Resposta inclui o `protocolo` gerado (recibo do cadastro, exibido na confirmação e reexibido no monitoramento).
-- `GET /api/veiculos` — listagem paginada (filtros por chassi/marca), todos os veículos. Só Admin.
-- `GET /api/veiculos/meus-registros` — mesma listagem, mas sempre escopada ao usuário autenticado (nunca aceito do cliente) — qualquer perfil, é a base da tela **Meus Registros**.
-- `GET /api/veiculos/:id` — detalhe completo (fotos + vídeo). Qualquer perfil autenticado; Admin vê qualquer veículo, Operador só o que ele mesmo cadastrou (404 para o resto, sem confirmar que o id existe).
+- `GET /api/veiculos` — listagem paginada (filtros por chassi/marca), todos os veículos de todos os usuários. Qualquer perfil autenticado — base da tabela de Monitoramento.
+- `GET /api/veiculos/:id` — detalhe completo (fotos + vídeo). Qualquer perfil autenticado pode ver qualquer veículo (não há escopo por usuário).
 - `DELETE /api/veiculos/:id` — exclusão definitiva (linha + fotos via FK CASCADE + arquivos físicos em disco, best-effort). Só Admin. O veículo já pode ter saído para a concessionária — existe para corrigir cadastro errado, não como fluxo comum.
 - `GET /api/uploads/:arquivo` — serve a mídia (fotos/vídeo), atrás de `authenticate` (GET, então CSRF não se aplica).
-- `GET /api/monitoramento/dashboard?dias=7|30|60` — total de veículos, cadastrados hoje, cadastrados no período, distribuição por marca, série diária. Só Admin.
+- `GET /api/monitoramento/dashboard?dias=7|30|60` — total de veículos, cadastrados hoje, cadastrados no período, distribuição por marca, série diária. Qualquer perfil autenticado.
 - `GET /api/usuarios`, `POST /api/usuarios`, `PUT /api/usuarios/:id`, `POST /api/usuarios/:id/resetar-senha`, `DELETE /api/usuarios/:id` — gerenciamento de Operadores (sem campo de centro/unidade). Só Admin (não existe mais o perfil Gestor).
 
 > **Transversal a toda a API:** headers de segurança, corpo JSON limitado a 100 KB (uploads não passam pelo parser JSON), rate limit global por IP e rate limit por usuário nas rotas que geram credenciais.
@@ -163,7 +161,7 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 | 2026-08-10 | **Cor removida do produto** (campo do cadastro, tabela `cores`, coluna `veiculos.cor_id`) | Pedido explícito do cliente: "será irrelevante para esse sistema". `db:setup` remove a coluna/tabela automaticamente em bancos que já as tinham |
 | 2026-08-10 | **Centro de Distribuição removido do produto inteiro** (campo do cadastro, tabela `centros_distribuicao`, `usuarios.centro_distribuicao_id`, tela `/centros`, escopo do Operador) — reverte a decisão de "ganhou tela de gestão própria" tomada mais cedo no mesmo dia | Pedido explícito do cliente: "não faz sentido ter para esse sistema". Operador deixou de ter qualquer vínculo territorial — cadastra para qualquer destino. `db:setup` remove FKs/colunas/tabela automaticamente em bancos que já as tinham |
 | 2026-08-10 | **Cabeçalho do wizard de cadastro passou a mostrar o nome do usuário logado**, no lugar do nome do centro (que deixou de existir) | Pedido explícito do cliente ("o item número 1 pode ser apenas o nome do usuário cadastrado") |
-| 2026-08-10 | **Nova tela "Meus Registros"** (`/meus-registros`, `GET /api/veiculos/meus-registros`) — histórico dos veículos cadastrados pelo próprio usuário logado, para Operador **e** Admin | Pedido explícito do cliente. Reaproveita `VeiculosTabela`/`VeiculoDetalheModal` já existentes via uma prop (`apenasMeus`), em vez de duplicar a tela; o escopo por usuário é sempre imposto pelo backend a partir do token, nunca aceito do cliente |
+| 2026-08-10 | **"Meus Registros" criada e removida no mesmo dia** — a tela e a rota `GET /api/veiculos/meus-registros` foram implementadas e, horas depois, retiradas: **Monitoramento passou a ser visível a qualquer perfil autenticado, mostrando os registros de todos os usuários** (não só os próprios); a única diferença do Admin continua sendo a permissão de excluir | Pedido explícito do cliente: "os demais perfis poderao ver sim a tela de monitoracao... mostrando todos, ate de outros usuarios". `GET /api/veiculos` e `GET /api/monitoramento/dashboard` deixaram de exigir `authorize('admin')`; `VeiculosTabela` perdeu a prop `apenasMeus` (sempre mostra a coluna Usuário) |
 
 ## 10. Log de Evolução / Changelog
 
@@ -182,10 +180,17 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
   - Correção de bug real (não relacionado às mudanças de escopo): CSS do `Modal` e de `ui.css` só carregava se o usuário já tivesse visitado `/usuarios` antes na mesma sessão (import por página, não global) — modal de detalhe do veículo abria sem estilo nenhum quando acessado direto via Monitoramento. Corrigido movendo `ui.css` para import único em `main.tsx` e o CSS do `Modal` para `components/Modal.css`, importado pelo próprio componente.
   - Backend e frontend (`npm run typecheck` / `npm run build`) OK.
 
+- **2026-08-10** — **Monitoramento aberto a todos os perfis; "Meus Registros" removida (mesmo dia em que foi criada).**
+  - **Backend**: `veiculos.service.ts` perdeu o conceito de escopo por usuário (`UsuarioAutenticado` volta a ser só `{ sub }`, `buscarPorId`/`listar` sem parâmetro de escopo/`usuarioId`); `veiculos.controller.ts` perdeu o handler `meusRegistros`; `veiculos.routes.ts` perdeu a rota `GET /meus-registros` e `GET /` deixou de exigir `authorize('admin')`; `monitoramento.routes.ts` deixou de exigir `authorize('admin')` no `.use()` — só `DELETE /api/veiculos/:id` continua admin-only.
+  - **Frontend**: `modules/monitoramento/MeusRegistrosPage.tsx` excluído; rota `/meus-registros` removida de `App.tsx`; `services/veiculos.service.ts` perdeu `listarMeusRegistros`; `VeiculosTabela.tsx` perdeu a prop `apenasMeus` (sempre chama `listarVeiculos`, sempre mostra a coluna Usuário); links de navegação ("Meus Registros") removidos de `VeiculoPage`/`UsuariosPage`/`MonitoramentoPage`; link "Monitoramento" passou a aparecer para qualquer perfil (antes só Admin); link "Usuários" continua Admin-only.
+  - **Não implementado nesta passagem**: o pedido mencionava também "editar" registros como permissão exclusiva do Admin, mas não há hoje nenhuma funcionalidade de edição de veículo no sistema (nem para Admin, nem para Operador) — não foi criada por falta de especificação (quais campos, que UI); fica registrada como item aberto no Roadmap (§4) e nos Próximos Passos (§11).
+  - Backend e frontend (`npm run typecheck` / `npm run build`) OK.
+
 ## 11. Próximos Passos
 
 1. ⏳ Rodar `npm run db:setup` no MySQL real (cria `dva_veiculos`) e confirmar que o usuário do banco tem `GRANT SELECT` em `painel_procar` também.
 2. ⏳ Validar a cobertura de modelos da FIPE para as 7 marcas do DVA no banco antigo; rodar `npm run import:fipe:marcas` se necessário.
-3. ⏳ Testar o fluxo fim a fim num tablet real: cadastro de veículo com fotos/vídeo grandes, monitoramento, gestão de usuários, Meus Registros.
+3. ⏳ Testar o fluxo fim a fim num tablet real: cadastro de veículo com fotos/vídeo grandes, monitoramento (como Operador e como Admin), gestão de usuários.
 4. ⏳ Revisar tetos de upload (15MB/foto, 200MB/vídeo, 8 fotos) — são suposições, ajustáveis em `backend/src/modules/veiculos/upload.ts`.
 5. ⏳ Deploy: revisar `DEPLOY.md`/`DEPLOY-RAPIDO.md`/`SECURITY-REVIEW.md`/`IMPORTACAO-FIPE.md` (herdados do projeto anterior) — ainda descrevem a arquitetura de um banco só; precisam de um passe para refletir os dois bancos na mesma instância.
+6. ⏳ **Edição de veículo** — mencionada pelo cliente como permissão exclusiva do Admin, mas sem especificação (campos editáveis, UI); não existe hoje no sistema (nem para Admin nem para Operador). Levantar requisitos antes de implementar.

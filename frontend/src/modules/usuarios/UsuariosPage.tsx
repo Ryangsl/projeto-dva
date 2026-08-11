@@ -133,9 +133,6 @@ export function UsuariosPage() {
         titulo="Usuários"
         acoes={
           <>
-            <Link to="/meus-registros" className="app-topo-link">
-              Meus Registros
-            </Link>
             <Link to="/monitoramento" className="app-topo-link">
               Monitoramento
             </Link>
