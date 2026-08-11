@@ -4,10 +4,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Logo';
 import './login.css';
 
-// Placeholder do modelo de referência (fundo claro — o véu escuro em
-// login.css compensa). Trocar aqui quando a foto definitiva (carro escuro)
-// for adicionada em public/images/.
+// Textura de fundo do painel esquerdo (placeholder — fundo claro, o véu
+// escuro em login.css compensa e a deixa quase imperceptível, só ambiente).
 const IMAGEM_PAINEL = '/images/fundo-supercar.png';
+// Marca d'água grande e centralizada no painel esquerdo (modelo enviado
+// pelo cliente em 2026-08-11).
+const MARCA_DAGUA = '/images/procar_transp.png';
 
 function IconePessoa(props: SVGProps<SVGSVGElement>) {
   return (
@@ -103,6 +105,7 @@ export function LoginPage() {
       <div className="login-tela-imagem">
         <img src={IMAGEM_PAINEL} alt="" className="login-tela-foto" />
         <div className="login-tela-imagem-veu" />
+        <img src={MARCA_DAGUA} alt="" className="login-tela-marca-dagua" />
         <div className="login-tela-corte" />
         <div className="login-tela-selo">
           <span className="login-tela-selo-icone">

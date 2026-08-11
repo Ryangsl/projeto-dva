@@ -35,15 +35,31 @@
   object-fit: cover;
   object-position: center;
 }
-/* Véu escuro sobre a foto: dá o clima "fundo preto" do modelo mesmo com uma
-   imagem de referência mais clara (troca de imagem é só o `src` em
-   IMAGEM_PAINEL, no LoginPage.tsx). */
+/* Véu escuro bem forte sobre a foto: no modelo atual ela é só uma textura
+   ambiente atrás da marca d'água (não mais o "fundo de foto" reconhecível
+   das versões anteriores desta tela) — por isso a opacidade é bem mais alta
+   que antes (troca de imagem é só o `src` em IMAGEM_PAINEL, no
+   LoginPage.tsx). */
 .login-tela-imagem-veu {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(4, 8, 14, 0.55) 0%, rgba(4, 8, 14, 0.2) 35%, rgba(4, 8, 14, 0.88) 100%),
-    linear-gradient(90deg, rgba(4, 8, 14, 0.1) 0%, rgba(4, 8, 14, 0.65) 100%);
+    linear-gradient(180deg, rgba(4, 8, 14, 0.86) 0%, rgba(4, 8, 14, 0.72) 35%, rgba(4, 8, 14, 0.95) 100%),
+    linear-gradient(90deg, rgba(4, 8, 14, 0.55) 0%, rgba(4, 8, 14, 0.88) 100%);
+}
+/* Marca d'água grande e centralizada (modelo enviado pelo cliente em
+   2026-08-11) — puramente decorativa (pointer-events:none) e discreta
+   (opacity baixa), nunca deformada (object-fit:contain). */
+.login-tela-marca-dagua {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(82%, 720px);
+  height: auto;
+  object-fit: contain;
+  opacity: 0.14;
+  pointer-events: none;
 }
 /* Linha diagonal com brilho, sugerindo o corte entre as duas colunas do
    modelo de referência. */
