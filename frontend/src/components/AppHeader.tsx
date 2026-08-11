@@ -3,17 +3,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
-// Faixa fixa no topo das telas autenticadas: logo PROCAR em destaque + título
-// da tela, e à direita as ações contextuais (slot), o botão de tema, o nome do
-// usuário e Sair. Fica `position: fixed` (classe .app-topo) — o conteúdo das
-// páginas reserva o espaço via padding-top no wrapper `.guia`.
+const TITULO_SISTEMA = 'Gerenciamento e distribuição de veículos do Grupo ProCar';
+
+// Faixa fixa no topo das telas autenticadas: logo em destaque + título do
+// sistema (fixo, igual em toda tela — não muda por página), e à direita as
+// ações contextuais (slot), o botão de tema, o nome do usuário e Sair. Fica
+// `position: fixed` (classe .app-topo) — o conteúdo das páginas reserva o
+// espaço via padding-top no wrapper `.guia`.
 interface AppHeaderProps {
-  titulo: string;
   /** Ações específicas da tela (ex.: link "Monitoramento" / "← Guia"). */
   acoes?: ReactNode;
 }
 
-export function AppHeader({ titulo, acoes }: AppHeaderProps) {
+export function AppHeader({ acoes }: AppHeaderProps) {
   const { usuario, sair } = useAuth();
   const ref = useRef<HTMLElement>(null);
 
@@ -50,7 +52,7 @@ export function AppHeader({ titulo, acoes }: AppHeaderProps) {
       <div className="app-topo-in">
         <div className="app-topo-esq">
           <Logo height={52} />
-          <span className="app-topo-titulo">{titulo}</span>
+          <span className="app-topo-titulo">{TITULO_SISTEMA}</span>
         </div>
         <div className="app-topo-dir">
           {acoes}

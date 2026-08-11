@@ -130,7 +130,6 @@ export function UsuariosPage() {
   return (
     <div className="guia">
       <AppHeader
-        titulo="Usuários"
         acoes={
           <>
             <Link to="/monitoramento" className="app-topo-link">

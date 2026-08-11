@@ -13,7 +13,7 @@ const ESCURO = '#12283f';
 // isso, sem precisar de uma chave por variação). A ordem em CHAVES não
 // importa para os slugs abaixo (nenhum trecho é substring de outro).
 //
-// Cobertura das 7 marcas do Grupo DVA (ver modules/veiculos/marcas-dva.ts,
+// Cobertura das 7 marcas do Grupo ProCar (ver modules/veiculos/marcas-dva.ts,
 // backend): Mercedes e Jeep têm logo oficial; RAM, Chrysler também (adicionado
 // em 2026-08-10). BYD e Denza NÃO têm ícone no Simple Icons — caem no
 // fallback de selo com inicial (ver iconeDaMarca abaixo), que é o

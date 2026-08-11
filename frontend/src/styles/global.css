@@ -198,12 +198,12 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px 10px;
-  /* Com muitos links (perfil admin: Usuários, Centros, Monitoramento, Minha
-     senha, Sair...) uma linha só não cabe em telas estreitas. Em vez de estourar/
-     encavalar os itens (nowrap sem espaço sobrando), as ações quebram para
-     uma 2ª linha — a altura real da faixa (1 ou 2 linhas) é medida no
-     AppHeader.tsx e escrita em --topo-altura, então o espaço reservado
-     abaixo sempre acompanha. */
+  /* Com vários links (perfil admin: Usuários, Monitoramento, Sair...) uma
+     linha só não cabe em telas estreitas. Em vez de estourar/encavalar os
+     itens (nowrap sem espaço sobrando), as ações quebram para uma 2ª linha —
+     a altura real da faixa (1 ou 2 linhas) é medida no AppHeader.tsx e
+     escrita em --topo-altura, então o espaço reservado abaixo sempre
+     acompanha. */
   flex-wrap: wrap;
 }
 @media (min-width: 800px) {
@@ -216,7 +216,10 @@ select {
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex: none;
+  /* flex-shrink habilitado (era `flex: none`): o título agora é uma frase
+     fixa e bem mais longa que os títulos curtos de antes ("Usuários" etc.) —
+     sem isso ela empurrava a faixa para fora da tela em vez de truncar. */
+  flex: 0 1 auto;
 }
 .app-topo-titulo {
   font-weight: 700;
@@ -227,6 +230,9 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Sem isso o item flex nunca encolhe abaixo do tamanho do texto (mínimo
+     padrão é `auto`, não 0) e o text-overflow:ellipsis acima nunca dispara. */
+  min-width: 0;
 }
 /* Em telas estreitas o título cede espaço para a logo e as ações. */
 @media (max-width: 560px) {

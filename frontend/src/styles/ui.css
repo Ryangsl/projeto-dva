@@ -121,8 +121,19 @@
 }
 .login-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 480px;
   padding: 28px 24px;
+}
+/* Acima de ~700px de viewport o card passa a ocupar ~70% da tela (pedido
+   explícito do cliente: "preencha cerca de 70%"), até um teto que evita um
+   card absurdamente largo em monitores grandes. Abaixo disso (celular/tablet
+   estreito) mantém o comportamento mobile-first de cima: sobe até 480px,
+   nunca 70% de uma tela pequena (isso deixaria os campos apertados). */
+@media (min-width: 700px) {
+  .login-card {
+    width: 60%;
+    max-width: 680px;
+  }
 }
 .login-logo {
   display: flex;

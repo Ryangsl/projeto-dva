@@ -1,6 +1,6 @@
-# Grupo DVA — Gerenciamento e Distribuição de Veículos
+# Grupo ProCar — Gerenciamento e Distribuição de Veículos
 
-Sistema web para **cadastrar e distribuir veículos entre concessionárias do Grupo DVA**. Um Operador, no centro de distribuição, registra o veículo (marca, modelo, chassi, cor, fotos, vídeo, observações e destino) — o **Chassi é o identificador único**. O Admin acompanha tudo numa tela de **Monitoramento** (KPIs, distribuição por centro/marca, busca por chassi, detalhe com fotos e vídeo) e gerencia usuários e centros de distribuição.
+Sistema web para **cadastrar e distribuir veículos entre concessionárias do Grupo ProCar**. Um Operador registra o veículo (marca, modelo, chassi, fotos, vídeo, observações e destino) — o **Chassi é o identificador único**. Qualquer perfil autenticado acompanha tudo numa tela de **Monitoramento** (KPIs, distribuição por marca, busca por chassi, detalhe com fotos e vídeo); o Admin também gerencia usuários e pode excluir registros.
 
 > Este projeto foi adaptado do antigo "Guia de Atendimento" PROCAR, reaproveitando autenticação, layout e padrões de CRUD. Ver **[CLAUDE.md](./CLAUDE.md)** (arquitetura, roadmap e decisões).
 

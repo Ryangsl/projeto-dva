@@ -53,7 +53,6 @@ export function VeiculoPage() {
   return (
     <div className="guia">
       <AppHeader
-        titulo="Cadastro de Veículo"
         acoes={
           <>
             <Link to="/monitoramento" className="app-topo-link">

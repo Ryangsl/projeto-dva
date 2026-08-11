@@ -1,4 +1,4 @@
-# Grupo DVA — Gerenciamento e Distribuição de Veículos
+# Grupo ProCar — Gerenciamento e Distribuição de Veículos
 
 > Documento vivo. Fonte de verdade sobre o projeto: visão, arquitetura, decisões, estrutura e log de evolução. **Atualizar a cada mudança relevante** (nova feature, decisão de arquitetura, migration, etc.).
 
@@ -8,9 +8,11 @@ Este projeto nasceu como o **"Guia de Atendimento" da PROCAR** (roteiro de venda
 
 O histórico detalhado da fase "Guia PROCAR" (ADRs e changelog de 2026-07-02 a 2026-07-31) não é reproduzido aqui — está preservado no histórico do git (`git log`) para quem precisar de arqueologia. Este documento descreve o produto **como ele é agora**.
 
+> ℹ️ O produto foi batizado de "Grupo DVA" na transformação de 2026-08-10 e renomeado para **"Grupo ProCar"** em 2026-08-11 (ver §9/§10). Identificadores técnicos internos (nome do banco `dva_veiculos`, pacotes `dva-veiculos-*`, arquivo `marcas-dva.ts`) **não foram renomeados** — são infraestrutura interna, não a marca exibida ao usuário; se algo neste documento ainda disser "DVA" fora de um identificador técnico, é resquício a corrigir.
+
 ## 1. Visão do Produto
 
-**O produto é um sistema de GERENCIAMENTO E DISTRIBUIÇÃO DE VEÍCULOS entre concessionárias do Grupo DVA — não é um CRM nem um guia de vendas.**
+**O produto é um sistema de GERENCIAMENTO E DISTRIBUIÇÃO DE VEÍCULOS entre concessionárias do Grupo ProCar — não é um CRM nem um guia de vendas.**
 
 Um **Operador** registra um veículo que será enviado a uma concessionária: informa marca, modelo, chassi, anexa fotos e vídeo, escreve observações e indica o destino. O **Chassi é o identificador único do veículo** no sistema — não existem dois cadastros para o mesmo chassi. Cada cadastro gera automaticamente um **protocolo** (recibo curto da operação).
 
@@ -162,6 +164,8 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 | 2026-08-10 | **Centro de Distribuição removido do produto inteiro** (campo do cadastro, tabela `centros_distribuicao`, `usuarios.centro_distribuicao_id`, tela `/centros`, escopo do Operador) — reverte a decisão de "ganhou tela de gestão própria" tomada mais cedo no mesmo dia | Pedido explícito do cliente: "não faz sentido ter para esse sistema". Operador deixou de ter qualquer vínculo territorial — cadastra para qualquer destino. `db:setup` remove FKs/colunas/tabela automaticamente em bancos que já as tinham |
 | 2026-08-10 | **Cabeçalho do wizard de cadastro passou a mostrar o nome do usuário logado**, no lugar do nome do centro (que deixou de existir) | Pedido explícito do cliente ("o item número 1 pode ser apenas o nome do usuário cadastrado") |
 | 2026-08-10 | **"Meus Registros" criada e removida no mesmo dia** — a tela e a rota `GET /api/veiculos/meus-registros` foram implementadas e, horas depois, retiradas: **Monitoramento passou a ser visível a qualquer perfil autenticado, mostrando os registros de todos os usuários** (não só os próprios); a única diferença do Admin continua sendo a permissão de excluir | Pedido explícito do cliente: "os demais perfis poderao ver sim a tela de monitoracao... mostrando todos, ate de outros usuarios". `GET /api/veiculos` e `GET /api/monitoramento/dashboard` deixaram de exigir `authorize('admin')`; `VeiculosTabela` perdeu a prop `apenasMeus` (sempre mostra a coluna Usuário) |
+| 2026-08-11 | **Marca do produto renomeada de "Grupo DVA" para "Grupo ProCar"** — texto visível ao usuário (faixa de navegação, tela de login, `index.html`, READMEs); identificadores técnicos internos (banco `dva_veiculos`, pacotes npm `dva-veiculos-*`, arquivo `marcas-dva.ts`) **não foram tocados**, por não serem parte da marca exibida e por renomeá-los ter custo/risco de infraestrutura não pedido | Pedido explícito do cliente |
+| 2026-08-11 | **Faixa de navegação (`AppHeader`) passou a exibir um título fixo** ("Gerenciamento e distribuição de veículos do Grupo ProCar") **em vez do título por tela** ("Cadastro de Veículo"/"Usuários"/"Monitoramento"/"Minha senha") | Pedido explícito do cliente: "o título deve aparecer em todas as páginas". `AppHeader` perdeu a prop `titulo`; como a frase é bem mais longa que os títulos curtos de antes, `.app-topo-titulo`/`.app-topo-esq` em `global.css` ganharam `min-width: 0` para o truncamento (`text-overflow: ellipsis`) realmente funcionar em telas estreitas, em vez de estourar a faixa |
 
 ## 10. Log de Evolução / Changelog
 
@@ -184,6 +188,12 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
   - **Backend**: `veiculos.service.ts` perdeu o conceito de escopo por usuário (`UsuarioAutenticado` volta a ser só `{ sub }`, `buscarPorId`/`listar` sem parâmetro de escopo/`usuarioId`); `veiculos.controller.ts` perdeu o handler `meusRegistros`; `veiculos.routes.ts` perdeu a rota `GET /meus-registros` e `GET /` deixou de exigir `authorize('admin')`; `monitoramento.routes.ts` deixou de exigir `authorize('admin')` no `.use()` — só `DELETE /api/veiculos/:id` continua admin-only.
   - **Frontend**: `modules/monitoramento/MeusRegistrosPage.tsx` excluído; rota `/meus-registros` removida de `App.tsx`; `services/veiculos.service.ts` perdeu `listarMeusRegistros`; `VeiculosTabela.tsx` perdeu a prop `apenasMeus` (sempre chama `listarVeiculos`, sempre mostra a coluna Usuário); links de navegação ("Meus Registros") removidos de `VeiculoPage`/`UsuariosPage`/`MonitoramentoPage`; link "Monitoramento" passou a aparecer para qualquer perfil (antes só Admin); link "Usuários" continua Admin-only.
   - **Não implementado nesta passagem**: o pedido mencionava também "editar" registros como permissão exclusiva do Admin, mas não há hoje nenhuma funcionalidade de edição de veículo no sistema (nem para Admin, nem para Operador) — não foi criada por falta de especificação (quais campos, que UI); fica registrada como item aberto no Roadmap (§4) e nos Próximos Passos (§11).
+  - Backend e frontend (`npm run typecheck` / `npm run build`) OK.
+
+- **2026-08-11** — **Marca renomeada para "Grupo ProCar"; título fixo na faixa de navegação em todas as telas.**
+  - **Texto/branding**: `Grupo DVA` → `Grupo ProCar` em `frontend/index.html` (`<title>`), tagline da `LoginPage`, descrições de `backend/package.json`/`frontend/package.json`, comentário de `BrandLogo.tsx` e título/visão do `README.md` e deste `CLAUDE.md`. Identificadores técnicos (banco `dva_veiculos`, nomes dos pacotes npm `dva-veiculos-*`, arquivo `marcas-dva.ts`) permanecem inalterados — são infraestrutura interna, renomear teria custo/risco não pedido.
+  - **`AppHeader.tsx`**: perdeu a prop `titulo`; passou a exibir sempre a mesma frase fixa ("Gerenciamento e distribuição de veículos do Grupo ProCar") no lugar do título por tela. Todos os chamadores (`VeiculoPage`, `UsuariosPage`, `MonitoramentoPage`, `AlterarSenhaPage`) pararam de passar `titulo`.
+  - **`global.css`**: `.app-topo-esq` (`flex: none` → `flex: 0 1 auto`) e `.app-topo-titulo` (novo `min-width: 0`) — sem isso o item flex não encolhe abaixo do tamanho do conteúdo (mínimo padrão é `auto`) e a frase fixa, bem mais longa que os títulos curtos de antes, estouraria a faixa em telas estreitas em vez de truncar com reticências.
   - Backend e frontend (`npm run typecheck` / `npm run build`) OK.
 
 ## 11. Próximos Passos

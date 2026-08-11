@@ -2,7 +2,7 @@
   "name": "dva-veiculos-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "API REST do Gerenciamento e Distribuição de Veículos Grupo DVA (MVP)",
+  "description": "API REST do Gerenciamento e Distribuição de Veículos Grupo ProCar (MVP)",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

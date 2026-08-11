@@ -54,7 +54,7 @@ export function AlterarSenhaPage() {
 
   return (
     <div className="guia">
-      <AppHeader titulo="Minha senha" />
+      <AppHeader />
       <div className="login-wrap" style={{ minHeight: 'auto', padding: '24px 16px' }}>
         <form className="card login-card" onSubmit={handleSubmit}>
           <h1 className="primeiro-titulo">Trocar minha senha</h1>

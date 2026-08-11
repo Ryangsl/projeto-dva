@@ -45,7 +45,7 @@ export function LoginPage() {
           <Logo height={84} />
         </div>
         <p className="login-tagline">
-          Gerenciamento e distribuição de veículos do Grupo DVA.
+          Gerenciamento e distribuição de veículos do Grupo ProCar.
         </p>
         <div className="login-sep" />
 

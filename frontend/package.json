@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Frontend do Gerenciamento e Distribuição de Veículos Grupo DVA (MVP)",
+  "description": "Frontend do Gerenciamento e Distribuição de Veículos Grupo ProCar (MVP)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

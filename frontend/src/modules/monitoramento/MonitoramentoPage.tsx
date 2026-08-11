@@ -85,7 +85,6 @@ export function MonitoramentoPage() {
   return (
     <div className="guia">
       <AppHeader
-        titulo="Monitoramento"
         acoes={
           <>
             {souAdmin && (

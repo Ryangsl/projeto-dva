@@ -122,7 +122,7 @@
 
 /* ===== Wizard de cadastro (tela 1) ===== */
 .wizard {
-  max-width: 760px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 16px 16px 40px;
   display: grid;
