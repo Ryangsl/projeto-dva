@@ -204,3 +204,18 @@ Cada **módulo de negócio** é autocontido (routes + controller + service junto
 4. ⏳ Revisar tetos de upload (15MB/foto, 200MB/vídeo, 8 fotos) — são suposições, ajustáveis em `backend/src/modules/veiculos/upload.ts`.
 5. ⏳ Deploy: revisar `DEPLOY.md`/`DEPLOY-RAPIDO.md`/`SECURITY-REVIEW.md`/`IMPORTACAO-FIPE.md` (herdados do projeto anterior) — ainda descrevem a arquitetura de um banco só; precisam de um passe para refletir os dois bancos na mesma instância.
 6. ⏳ **Edição de veículo** — mencionada pelo cliente como permissão exclusiva do Admin, mas sem especificação (campos editáveis, UI); não existe hoje no sistema (nem para Admin nem para Operador). Levantar requisitos antes de implementar.
+
+## 12. Portas Utilizadas
+
+> Relevante para o deploy: a VPS vai hospedar outros softwares além deste sistema (pedido explícito do cliente) — checar esta tabela antes de subir mais um serviço na mesma máquina, para não colidir porta. Passo a passo operacional completo (firewall, Nginx, PM2) em [DEPLOY-RAPIDO.md](./DEPLOY-RAPIDO.md).
+
+| Porta | Serviço | Exposta na internet? | Observação |
+|---|---|---|---|
+| 80 | Nginx (HTTP) | Sim | Serve o frontend (build estático) e faz proxy de `/api/` para a porta 3333. |
+| 443 | Nginx (HTTPS) | Sim (só depois de domínio + Certbot) | Mesma coisa que a 80, com TLS. |
+| 22 | SSH | Sim | Acesso à VPS — só chave pública (sem senha), com fail2ban. |
+| 3333 | Backend (Node/Express, processo PM2 `procar-api`) | **Não** — só `127.0.0.1` | Nunca liberar no firewall (`ufw`): só o Nginx local fala com ela via `proxy_pass`. Configurável por `PORT` no `.env` do backend (padrão 3333, ver `backend/src/config/env.ts`). |
+| 3306 | MySQL | **Não** — só `127.0.0.1` | Uma única instância serve os dois bancos (`dva_veiculos` e `painel_procar` — ver §5). Nunca liberar no firewall. Configurável por `DB_PORT` (padrão 3306). |
+| 5173 | Vite dev server (frontend) | Não se aplica | Só em desenvolvimento local (`npm run dev` no frontend, ver `frontend/vite.config.ts`) — a build de produção é estática, servida pelo Nginx; essa porta não sobe na VPS. |
+
+**Para hospedar outro software na mesma VPS**: evite reaproveitar 3333/3306/5173 acima (mesmo não expostas externamente, colidem se dois processos tentarem abrir a mesma porta na mesma máquina); mantenha 80/443 dedicadas ao Nginx — sirva outro site por um `server {}` adicional no mesmo Nginx (outro `server_name`), não abrindo outra porta pra isso. `sudo ss -tlnp` na VPS lista o que já está escutando em cada porta antes de decidir a próxima.

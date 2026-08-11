@@ -809,3 +809,19 @@ Detalhes, explicações e rotinas completas: **[DEPLOY.md](./DEPLOY.md)** · pro
 | Backup falhando | Falta `--no-tablespaces` (erro de privilégio PROCESS) |
 | Backend não voltou após reboot | `systemctl is-enabled pm2-procar` → rodar `pm2 startup` |
 | Trancado fora do SSH | Terminal do navegador no hPanel; `sudo fail2ban-client set sshd unbanip SEU_IP` |
+
+---
+
+## Portas usadas por esta aplicação
+
+Se a VPS também vai hospedar outro software, aqui está o que este sistema ocupa, pra não colidir:
+
+| Porta | Serviço | UFW (seção 3) | Observação |
+|---|---|---|---|
+| 22 | SSH | `allow 22/tcp` | Compartilhada com qualquer outro uso da VPS — não é específica deste app. |
+| 80 | Nginx (HTTP) | `allow 80/tcp` | Serve o frontend + proxy de `/api/`. Outro site na mesma VPS entra como um novo `server {}` (outro `server_name`) no mesmo Nginx (seção 10) — **não** abra outra porta pra isso. |
+| 443 | Nginx (HTTPS) | `allow 443/tcp` | Idem, com TLS (seção 11). |
+| 3333 | Backend Node (PM2 `procar-api`) | **Não liberada** — só `127.0.0.1:3333`, o Nginx fala com ela via `proxy_pass` (seção 10) | Se outro software desta VPS também for Node/Express, dê a ele uma porta diferente (ex. 3334) no `PORT` do `.env` dele — 3333 já é deste app. |
+| 3306 | MySQL | **Não liberada** — só `127.0.0.1:3306` | Uma única instância `mysql-server` serve a VPS inteira (dois bancos deste app — seção 6/8 — mais o que outro software precisar). Bancos adicionais entram como novo `CREATE DATABASE` + usuário, **não** como outra instância/porta MySQL. |
+
+`sudo ss -tlnp` na VPS lista o que já está escutando em cada porta — rode antes de subir outro software, pra confirmar que a porta escolhida está livre.

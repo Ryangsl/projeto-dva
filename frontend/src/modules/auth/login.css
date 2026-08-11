@@ -1,0 +1,243 @@
+/* Tela de login — layout split-panel (foto do veículo + formulário),
+   adaptado do modelo visual enviado pelo cliente. Fica em branch própria
+   (design/login-redesign): ao contrário do resto do app, este visual é
+   FIXO escuro — não reage ao ThemeToggle (o modelo de referência não tem
+   alternância de tema) — por isso usa cores hardcoded em vez dos tokens de
+   --bg/--surface/etc. de global.css. */
+
+.login-tela {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  background: #060a10;
+}
+
+/* ===== Painel da foto (metade esquerda) =====
+   Mobile-first: escondido por padrão. Numa tela de celular a foto só rouba
+   espaço dos campos — reaparece a partir de ~860px, quando sobra largura de
+   verdade para as duas colunas lado a lado sem apertar o formulário. */
+.login-tela-imagem {
+  position: relative;
+  flex: 1 1 55%;
+  display: none;
+  overflow: hidden;
+}
+@media (min-width: 860px) {
+  .login-tela-imagem {
+    display: block;
+  }
+}
+.login-tela-foto {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+/* Véu escuro sobre a foto: dá o clima "fundo preto" do modelo mesmo com uma
+   imagem de referência mais clara (troca de imagem é só o `src` em
+   IMAGEM_PAINEL, no LoginPage.tsx). */
+.login-tela-imagem-veu {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(4, 8, 14, 0.55) 0%, rgba(4, 8, 14, 0.2) 35%, rgba(4, 8, 14, 0.88) 100%),
+    linear-gradient(90deg, rgba(4, 8, 14, 0.1) 0%, rgba(4, 8, 14, 0.65) 100%);
+}
+/* Linha diagonal com brilho, sugerindo o corte entre as duas colunas do
+   modelo de referência. */
+.login-tela-corte {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, #2f8ff0 30%, #2f8ff0 70%, transparent);
+  box-shadow: 0 0 18px 1px rgba(47, 143, 240, 0.55);
+  transform: skewX(-6deg);
+}
+.login-tela-selo {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-tela-selo-icone {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cfd8e3;
+}
+.login-tela-selo-icone svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-selo p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #cfd8e3;
+  max-width: 220px;
+}
+.login-tela-selo strong {
+  color: #4fa8f5;
+  font-weight: 700;
+}
+
+/* ===== Painel do formulário (metade direita, ou tela inteira no celular) ===== */
+.login-tela-form {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+}
+.login-tela-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-tela-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+/* Força a arte branca sempre (a logo original é preta) — este painel não
+   segue o tema claro/escuro do resto do app, então não pode depender de
+   --logo-filtro (ver global.css), que só inverte no tema escuro. */
+.login-tela-logo-img {
+  filter: brightness(0) invert(1) !important;
+}
+.login-tela-sep {
+  width: 64px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #2f8ff0, transparent);
+  margin: 16px auto 22px;
+}
+.login-tela-tagline {
+  text-align: center;
+  color: #97a4b6;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  margin: 0 0 26px;
+  text-wrap: balance;
+}
+
+.login-tela-erro {
+  color: #ff9f9f;
+  background: rgba(255, 80, 80, 0.12);
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
+.login-tela-campo {
+  margin-bottom: 18px;
+}
+.login-tela-campo label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd4e0;
+  margin-bottom: 7px;
+}
+.login-tela-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.login-tela-input-icone {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: #6c7891;
+  pointer-events: none;
+}
+.login-tela-input-wrap input {
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 14px 13px 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e7ecf2;
+  font-size: 0.98rem;
+}
+/* Campo de senha reserva espaço à direita para o botão de mostrar/ocultar. */
+.login-tela-campo-senha input {
+  padding-right: 42px;
+}
+.login-tela-input-wrap input::placeholder {
+  color: #5c687d;
+}
+.login-tela-input-wrap input:focus {
+  outline: none;
+  border-color: #2f8ff0;
+  background: rgba(47, 143, 240, 0.08);
+}
+.login-tela-olho {
+  position: absolute;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: #6c7891;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 7px;
+}
+.login-tela-olho svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-olho:hover,
+.login-tela-olho:focus-visible {
+  color: #2f8ff0;
+  background: rgba(47, 143, 240, 0.1);
+}
+
+.login-tela-entrar {
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b9dfb, #1f6fd6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 10px 24px -8px rgba(47, 143, 240, 0.6);
+  transition: filter 0.15s ease;
+}
+.login-tela-entrar svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-entrar:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.login-tela-entrar:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
