@@ -176,7 +176,7 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
               <span className="guia-passo-num">{numero()}</span> FOTOS
             </div>
             <label className="btn btn-secundario veiculo-upload-btn">
-              Escolher fotos
+              Incluir fotos
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -207,7 +207,7 @@ export function VeiculoWizard({ dados, usuario, veiculo, onChange, onSalvar, env
               <span className="guia-passo-num">{numero()}</span> VÍDEO
             </div>
             <label className="btn btn-secundario veiculo-upload-btn">
-              {veiculo.video ? 'Trocar vídeo' : 'Escolher vídeo'}
+              {veiculo.video ? 'Trocar vídeo' : 'Incluir vídeo'}
               <input
                 type="file"
                 accept="video/mp4,video/webm,video/quicktime"

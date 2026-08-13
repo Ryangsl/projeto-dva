@@ -80,9 +80,9 @@
 }
 .login-tela-grupo {
   font-size: 1.3rem;
-  font-weight: 500;
+  font-weight: 800;
   letter-spacing: 3.5px;
-  color: #aab6c6;
+  color: #f2f5f9;
 }
 @media (min-width: 1200px) {
   .login-tela-cd {

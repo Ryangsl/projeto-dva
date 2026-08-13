@@ -1,289 +1,175 @@
-# DEPLOY-RAPIDO.md — PROCAR em ~30 min
+# DEPLOY-RAPIDO.md — Grupo ProCar (procar-dva) na mesma VPS do PROCAR antigo
 
-**VPS Hostinger · Ubuntu 24.04 LTS · só comandos.**
-Versão enxuta do [DEPLOY.md](./DEPLOY.md) — mesmas correções da auditoria, sem as explicações. Use `nano` em vez dos heredocs se preferir editar à mão.
+**VPS Hostinger já em produção · domínio `procarservice.com.br` · só comandos.**
 
-Substitua em todo o documento: `SEU_IP` · `seudominio.com.br` (só se for usar domínio — ver notas "sem domínio" nas seções 8/10/11/14 para acessar direto por IP) · `USUARIO/procar` · senhas.
+Esta VPS já hospeda o sistema antigo (**"Guia de Atendimento" PROCAR**, repositório `painel-procar`), em `https://guia.procarservice.com.br`, implantado seguindo o `DEPLOY-RAPIDO.md` original daquele projeto. Este guia **não repete o provisionamento da VPS** (já feito) — ele soma o Grupo ProCar (`procar-dva`) ao lado, em `https://dva.procarservice.com.br`, sem tocar em nada do sistema antigo.
 
-⚠️ **Não pule os blocos marcados `PORTÃO`** — são os pontos onde um erro trava tudo mais adiante.
+> Assumindo o subdomínio **`dva.procarservice.com.br`** para este sistema, seguindo o mesmo padrão do identificador técnico interno do projeto (banco `dva_veiculos`, pacotes `dva-veiculos-*` — ver `CLAUDE.md` §5). Se preferir outro nome (ex. `veiculos.procarservice.com.br`), troque só isso em todo o documento — nada mais depende do nome escolhido.
 
----
+Substitua neste documento: `SEU_IP` (mesmo IP da VPS já em uso) · `TROQUE_ESTA_SENHA_DVA` · `TROQUE_SENHA_ADMIN_DVA`.
 
-## 0 · Local, antes de começar (2 min)
-
-```bash
-# Na pasta do projeto, no SEU computador
-git ls-files backend/package-lock.json frontend/package-lock.json   # devem aparecer os 2
-git ls-files | grep -E "(^|/)\.env$"                                # deve vir VAZIO
-grep -rn "trust proxy" backend/src/                                 # deve existir
-grep -rn "'/health'" backend/src/routes/                            # deve existir (montada em /api por app.ts)
-```
-
-Faltando `trust proxy` → em `src/app.ts`, logo após `export const app = express();`:
-```typescript
-app.set('trust proxy', 1);
-```
-
-Faltando health → em `src/routes/index.ts`, antes das demais rotas:
-```typescript
-routes.get('/health', (_req, res) => res.json({ status: 'ok' }));
-```
-(a rota fica acessível em `/api/health` porque `app.ts` monta `app.use('/api', routes)` — o grep acima procura só o trecho `'/health'`, não a string completa)
-
-```bash
-# Sua chave SSH (se ainda não tiver)
-ssh-keygen -t ed25519 -C "procar-vps"
-cat ~/.ssh/id_ed25519.pub          # cole no hPanel: VPS → SSH Keys
-```
+⚠️ **Não pule os blocos marcados `PORTÃO`.**
 
 ---
 
-## 1 · VPS (3 min)
+## 0 · O que já existe na VPS e NÃO é repetido aqui
 
-hPanel → VPS → **Ubuntu 24.04 LTS** (sem painel), ≥2 GB RAM, data center mais próximo, **colar a chave SSH**. Anotar o IPv4.
+Feito pelo deploy do sistema antigo, reaproveitado sem alteração:
 
-hPanel → **VPS → Firewall**: liberar só **22, 80, 443**.
+- VPS Ubuntu, hostname, swap, timezone, usuário `procar` (com sudo), SSH endurecido (só chave), UFW (`22/80/443` liberadas).
+- Pacotes: `nginx`, `mysql-server`, `certbot`, `node` (22.x), `pm2` (daemon já rodando sob o usuário `procar`, com `pm2 startup` configurado), `fail2ban`.
+- Instância MySQL única (`mysql-server`) já de pé, com o banco `painel_procar` e o usuário `procar_app`.
+- `procar-api` (backend antigo) já escutando em `127.0.0.1:3333`, publicado via Nginx em `https://guia.procarservice.com.br`.
 
-hPanel → **Domínios → Zona DNS**: registros `A` para `@` e `www` → IP da VPS. **Opcional para o primeiro deploy** — sem domínio ainda, acesse direto por `http://SEU_IP` (ver notas "sem domínio" nas seções 10/11/14) e volte aqui quando tiver um domínio registrado.
-
----
-
-## 2 · Base do servidor (5 min)
-
-```bash
-ssh root@SEU_IP
-```
-
-```bash
-# needrestart não-interativo (senão trava os apt)
-mkdir -p /etc/needrestart/conf.d
-echo "\$nrconf{restart} = 'a';" > /etc/needrestart/conf.d/99-procar.conf
-
-# espera o unattended-upgrades do primeiro boot soltar o lock
-while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
-
-apt update && apt upgrade -y && apt autoremove -y
-
-hostnamectl set-hostname procar-vps
-grep -q "127.0.1.1" /etc/hosts || echo "127.0.1.1   procar-vps" >> /etc/hosts
-timedatectl set-timezone America/Sao_Paulo
-
-# swap (idempotente)
-if ! swapon --show | grep -q .; then
-  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
-  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-fi
-grep -q '^vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >> /etc/sysctl.conf
-sysctl -p >/dev/null
-
-# usuário
-adduser --gecos "" procar
-usermod -aG sudo procar
-rsync --archive --chown=procar:procar ~/.ssh /home/procar 2>/dev/null || true
-```
-
-### ⚠️ PORTÃO A — chave do `procar` (sem isso você se tranca para fora)
-
-```bash
-sudo test -s /home/procar/.ssh/authorized_keys && echo "OK" || echo "PARE"
-```
-
-Se **PARE**, do seu computador: `ssh-copy-id procar@SEU_IP`
-Ou, no servidor:
-```bash
-mkdir -p /home/procar/.ssh
-echo "COLE_AQUI_SUA_CHAVE_PUBLICA" > /home/procar/.ssh/authorized_keys
-chown -R procar:procar /home/procar/.ssh
-chmod 700 /home/procar/.ssh && chmod 600 /home/procar/.ssh/authorized_keys
-```
-
-**Teste em janela nova:** `ssh procar@SEU_IP` → deve entrar sem senha. Só então siga.
+**Nada disso é reinstalado ou reiniciado neste guia** — só entram peças novas, todas com nome/porta/caminho diferentes do que o sistema antigo já usa.
 
 ---
 
-## 3 · SSH + firewall (2 min)
+## Tabela de não-colisão
 
-```bash
-sudo tee /etc/ssh/sshd_config.d/99-procar.conf > /dev/null <<'EOF'
-PermitRootLogin no
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-PubkeyAuthentication yes
-MaxAuthTries 3
-X11Forwarding no
-AllowAgentForwarding no
-EOF
+| Item | Sistema antigo (guia) | Grupo ProCar — `procar-dva` (este guia) |
+|---|---|---|
+| Domínio | `guia.procarservice.com.br` | `dva.procarservice.com.br` |
+| Diretório | `/var/www/procar` | `/var/www/dva-veiculos` |
+| Porta do backend | `3333` | `3334` |
+| Banco próprio | `painel_procar` | `dva_veiculos` (novo) + leitura cross-database em `painel_procar` (catálogo FIPE, ver `CLAUDE.md` §5) |
+| Usuário MySQL | `procar_app` | `dva_app` (novo — `ALL` em `dva_veiculos`, `SELECT` em `painel_procar`) |
+| Processo PM2 | `procar-api` | `dva-veiculos-api` (mesmo daemon PM2, mesmo usuário `procar` — não precisa de novo `pm2 startup`) |
+| Site Nginx | `/etc/nginx/sites-available/procar` | `/etc/nginx/sites-available/dva-veiculos` |
+| Zona de rate limit Nginx | `procar_api` | `dva_api` (nomes de zona são globais no Nginx — não pode reaproveitar o mesmo) |
+| Repositório GitHub | `Ryangsl/painel-procar` | `Ryangsl/procar-dva` |
+| Chave de deploy | `~/.ssh/deploy_procar` (alias SSH `github.com`) | `~/.ssh/deploy_dva` (alias SSH `github.com-dva` — precisa de alias próprio, senão o SSH tenta a chave errada primeiro) |
+| Script de deploy | `/var/www/procar/deploy.sh` | `/var/www/dva-veiculos/deploy.sh` |
+| Comando CLI | `procar` | `dva-veiculos` |
+| Backups | `/var/backups/procar` | `/var/backups/dva-veiculos` |
 
-sudo sshd -t && sudo systemctl restart ssh
-
-# portas por NÚMERO (o perfil "Nginx Full" ainda não existe)
-sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
-sudo ufw --force enable && sudo ufw status
-```
-
----
-
-## 4 · Pacotes (4 min)
-
-```bash
-sudo apt install -y build-essential git curl unzip htop ncdu rsync jq ca-certificates gnupg \
-                    mysql-server nginx certbot python3-certbot-nginx fail2ban
-
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-sudo npm install -g pm2
-
-node -v && npm -v && npm config get omit    # omit deve vir vazio/[]
-```
+O snippet de headers de segurança (`/etc/nginx/snippets/procar-security.conf`) **é reaproveitado** (conteúdo genérico, sem nada específico do sistema antigo) — só a zona de rate limit precisa ser nova.
 
 ---
 
-## 5 · Fail2Ban + auto-updates (1 min)
+## 1 · DNS (1 min)
 
-```bash
-sudo tee /etc/fail2ban/jail.local > /dev/null <<'EOF'
-[DEFAULT]
-bantime  = 1h
-findtime = 10m
-maxretry = 5
-bantime.increment = true
-bantime.maxtime   = 1w
-ignoreip = 127.0.0.1/8 ::1
+hPanel → **Domínios → Zona DNS de `procarservice.com.br`** → novo registro `A`:
 
-[sshd]
-enabled = true
-backend = systemd
-
-[nginx-http-auth]
-enabled = true
-logpath = /var/log/nginx/error.log
-
-[nginx-limit-req]
-enabled = true
-logpath = /var/log/nginx/error.log
-EOF
-
-sudo systemctl enable --now fail2ban
-sudo fail2ban-client status          # 3 jails
-
-sudo apt install -y unattended-upgrades
-systemctl is-enabled unattended-upgrades
 ```
+dva    A    SEU_IP
+```
+
+### ⚠️ PORTÃO A — DNS precisa resolver antes de seguir
+```bash
+getent hosts dva.procarservice.com.br | awk '{print $1}'   # tem que devolver SEU_IP
+```
+Propagação pode levar alguns minutos. Só avance quando resolver.
 
 ---
 
-## 6 · MySQL (3 min)
+## 2 · Banco de dados novo + usuário (2 min)
 
 ```bash
-sudo mysql_secure_installation
-# n / y+senha / y / y / y / y
+ssh procar@SEU_IP
 ```
 
 ```bash
 sudo mysql <<'EOF'
-CREATE USER IF NOT EXISTS 'procar_app'@'localhost' IDENTIFIED BY 'TROQUE_ESTA_SENHA';
-CREATE DATABASE IF NOT EXISTS painel_procar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON painel_procar.* TO 'procar_app'@'localhost';
+CREATE USER IF NOT EXISTS 'dva_app'@'localhost' IDENTIFIED BY 'TROQUE_ESTA_SENHA_DVA';
+CREATE DATABASE IF NOT EXISTS dva_veiculos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON dva_veiculos.* TO 'dva_app'@'localhost';
+-- Leitura do catálogo de marca/modelo já importado da FIPE no banco antigo
+-- (cross-database, mesma instância — CLAUDE.md §5/§6). Só SELECT: o DVA nunca
+-- escreve no banco antigo.
+GRANT SELECT ON painel_procar.* TO 'dva_app'@'localhost';
 FLUSH PRIVILEGES;
 EOF
-
-sudo mysql_tzinfo_to_sql /usr/share/zoneinfo | sudo mysql mysql 2>/dev/null
-
-echo "innodb_buffer_pool_size = 256M" | sudo tee -a /etc/mysql/mysql.conf.d/mysqld.cnf
-sudo systemctl restart mysql
 ```
 
 ### ⚠️ PORTÃO B
 ```bash
-mysql -u procar_app -p painel_procar -e "SELECT 'ok';"
+mysql -u dva_app -p dva_veiculos -e "SELECT 'ok';"
+mysql -u dva_app -p -e "SELECT COUNT(*) FROM painel_procar.vehicle_brands;"   # não pode dar 'access denied'
 ```
 
 ---
 
-## 7 · Chave de deploy do GitHub (3 min)
+## 3 · Chave de deploy do GitHub — repositório separado (3 min)
+
+A chave `deploy_procar` já cadastrada só tem permissão no repositório antigo. Precisa de uma chave **nova**, e como os dois repositórios vivem em `github.com`, um **alias** no `~/.ssh/config` evita que o SSH escolha a chave errada:
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/deploy_procar -C "deploy-procar-vps" -N ""
-chmod 700 ~/.ssh && chmod 600 ~/.ssh/deploy_procar
+ssh-keygen -t ed25519 -f ~/.ssh/deploy_dva -C "deploy-procar-dva-vps" -N ""
+chmod 600 ~/.ssh/deploy_dva
 
 cat >> ~/.ssh/config <<'EOF'
 
-Host github.com
+Host github.com-dva
     HostName github.com
     User git
-    IdentityFile ~/.ssh/deploy_procar
+    IdentityFile ~/.ssh/deploy_dva
     IdentitiesOnly yes
 EOF
 chmod 600 ~/.ssh/config
 
-ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
-
-cat ~/.ssh/deploy_procar.pub
+cat ~/.ssh/deploy_dva.pub
 ```
 
-Copie a saída → GitHub → repositório → **Settings → Deploy keys → Add deploy key** → cole → **NÃO** marcar *Allow write access* → Add.
+Copie a saída → GitHub → repositório `procar-dva` → **Settings → Deploy keys → Add deploy key** → cole → **NÃO** marcar *Allow write access* → Add.
 
 ### ⚠️ PORTÃO C
 ```bash
-ssh -T git@github.com
+ssh -T git@github.com-dva
 ```
-Esperado: `Hi USUARIO/procar! You've successfully authenticated...` (não é erro).
+Esperado: `Hi Ryangsl/procar-dva! You've successfully authenticated...`
 
 ---
 
-## 8 · Pastas + `.env` (2 min)
+## 4 · Pastas + `.env` (2 min)
 
 ```bash
-sudo mkdir -p /var/www/procar/{releases,shared/backend,shared/frontend,shared/logs}
-sudo chown -R procar:procar /var/www/procar
+sudo mkdir -p /var/www/dva-veiculos/{releases,shared/backend,shared/frontend,shared/logs}
+sudo chown -R procar:procar /var/www/dva-veiculos
 
 JWT=$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))")
 
-cat > /var/www/procar/shared/backend/.env <<EOF
-PORT=3333
+cat > /var/www/dva-veiculos/shared/backend/.env <<EOF
+PORT=3334
 NODE_ENV=production
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=procar_app
-DB_PASSWORD=TROQUE_ESTA_SENHA
-DB_NAME=painel_procar
+DB_USER=dva_app
+DB_PASSWORD=TROQUE_ESTA_SENHA_DVA
+DB_NAME=dva_veiculos
+DB_VEHICLES_NAME=painel_procar
 JWT_SECRET=$JWT
 JWT_EXPIRES_IN=30m
-ADMIN_SENHA_INICIAL=TROQUE_SENHA_ADMIN
-CORS_ORIGIN=http://SEU_IP
-# Sem domínio/HTTPS ainda (só IP): cookie Secure é descartado pelo navegador em
-# http://. Deixe false enquanto não houver domínio + certbot (seção 11); depois
-# REMOVA esta linha (produção volta ao padrão Secure=true) e troque CORS_ORIGIN
-# para https://seudominio.com.br — ver seção "11b".
-COOKIE_SECURE=false
+ADMIN_SENHA_INICIAL=TROQUE_SENHA_ADMIN_DVA
+CORS_ORIGIN=https://dva.procarservice.com.br
 FIPE_API_KEY=
 EOF
 
-echo "VITE_API_URL=/api" > /var/www/procar/shared/frontend/.env
-chmod 600 /var/www/procar/shared/backend/.env
+echo "VITE_API_URL=/api" > /var/www/dva-veiculos/shared/frontend/.env
+chmod 600 /var/www/dva-veiculos/shared/backend/.env
 
-cat > /var/www/procar/shared/.my.cnf <<'EOF'
+cat > /var/www/dva-veiculos/shared/.my.cnf <<'EOF'
 [client]
-user=procar_app
-password=TROQUE_ESTA_SENHA
+user=dva_app
+password=TROQUE_ESTA_SENHA_DVA
 EOF
-chmod 600 /var/www/procar/shared/.my.cnf
+chmod 600 /var/www/dva-veiculos/shared/.my.cnf
 ```
 
-> Se você já tem domínio pronto agora (não é o seu caso hoje), use `CORS_ORIGIN=https://seudominio.com.br`, **não** defina `COOKIE_SECURE` (fica `true` por padrão em produção) e siga a seção 11 (HTTPS) normalmente.
+Domínio próprio desde já em produção → **não** defina `COOKIE_SECURE` (fica `true` por padrão, correto com HTTPS). Isso só seria necessário num deploy sem domínio ainda — não é o caso aqui.
 
 ---
 
-## 9 · Build e deploy (6 min)
+## 5 · Build e primeiro release (6 min)
 
 ```bash
 whoami                                  # tem que ser: procar
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
-git clone git@github.com:Ryangsl/painel-procar.git /var/www/procar/releases/$TIMESTAMP
-cd /var/www/procar/releases/$TIMESTAMP
+git clone github.com-dva:Ryangsl/procar-dva.git /var/www/dva-veiculos/releases/$TIMESTAMP
+cd /var/www/dva-veiculos/releases/$TIMESTAMP
 
-ln -sf /var/www/procar/shared/backend/.env  backend/.env
-ln -sf /var/www/procar/shared/frontend/.env frontend/.env
+ln -sf /var/www/dva-veiculos/shared/backend/.env  backend/.env
+ln -sf /var/www/dva-veiculos/shared/frontend/.env frontend/.env
 
 # BACKEND — ordem obrigatória: tudo → build → setup → poda
 cd backend
@@ -292,20 +178,11 @@ npm run build
 npm run db:setup
 ```
 
-**Veículos FIPE** (sem isso o wizard fica sem carros) — uma das duas:
+### ⚠️ PORTÃO D — catálogo de marca/modelo (cross-database)
 ```bash
-# A) restaurar dump do seu banco local (scp veiculos.sql procar@SEU_IP:/var/www/procar/shared/)
-mysql -u procar_app -p painel_procar < /var/www/procar/shared/veiculos.sql
-
-# B) importar da API (preencha FIPE_API_KEY no .env antes)
-npm run import:fipe:marcas
+mysql -u dva_app -p -e "SELECT COUNT(*) FROM painel_procar.vehicle_brands WHERE name LIKE '%Mercedes%' OR name LIKE '%Jeep%' OR name LIKE '%RAM%' OR name LIKE '%BYD%' OR name LIKE '%Dodge%' OR name LIKE '%Chrysler%' OR name LIKE '%Denza%';"
 ```
-
-### ⚠️ PORTÃO D
-```bash
-mysql -u procar_app -p painel_procar -e "SELECT COUNT(*) FROM vehicle_brands; SELECT COUNT(*) FROM vehicle_models;"
-```
-Zero = não adianta seguir.
+Zero = o wizard de cadastro fica sem marcas. O catálogo é o mesmo já importado pelo sistema antigo (`vehicle_brands`/`vehicle_models` em `painel_procar`) — se a contagem vier zero, confira se o import da FIPE (`npm run import:fipe:marcas`, rodado pelo projeto antigo) já cobre as 7 marcas do grupo (cobertura de RAM/BYD/Denza é incerta na FIPE — ver `CLAUDE.md` §6).
 
 ```bash
 npm prune --omit=dev
@@ -317,106 +194,33 @@ npm run build
 rm -rf node_modules
 ```
 
-⚠️ **Não use `$TIMESTAMP` aqui** — se essa variável sumir da sessão (reconectou o SSH, colou só esse trecho isolado...), ela expande para vazio e o `ln` aponta `current` para a pasta `releases/` inteira, não para o release, quebrando o site inteiro (Nginx: "`.../current/frontend/dist/index.html` No such file or directory") sem erro nenhum na hora. O comando abaixo deriva o caminho do release da pasta atual, então funciona mesmo que `$TIMESTAMP` tenha sumido, e só troca o symlink se o build realmente existir:
-
 ```bash
 RELEASE_DIR=$(dirname "$(pwd)")   # você está em .../releases/TIMESTAMP/frontend
 [ -f "$RELEASE_DIR/frontend/dist/index.html" ] || { echo "✖ dist/index.html não existe em $RELEASE_DIR — build falhou, não avance."; exit 1; }
 [ -f "$RELEASE_DIR/backend/dist/server.js" ]   || { echo "✖ backend/dist/server.js não existe em $RELEASE_DIR — build falhou, não avance."; exit 1; }
 
-ln -sfn "$RELEASE_DIR" /var/www/procar/current
-readlink -f /var/www/procar/current               # confirme: tem que ser o caminho do release, NÃO .../releases sozinho
+ln -sfn "$RELEASE_DIR" /var/www/dva-veiculos/current
+readlink -f /var/www/dva-veiculos/current
 ```
 
 ---
 
-## 10 · Nginx (3 min)
+## 6 · Nginx — novo site, mesmo Nginx do sistema antigo (3 min)
 
-`sudo tee` **sobrescreve o arquivo inteiro** a cada execução (não é `>>`, não acrescenta) — rodar qualquer um destes blocos de novo (agora, ou quando migrar para domínio na seção 11b) é seguro e substitui limpo o conteúdo anterior, sem duplicar nada. `ln -sfn` idem para o symlink.
+Não mexe em `/etc/nginx/sites-available/procar` nem no symlink dele — só soma um `server{}` novo, roteado pelo próprio `server_name` (Nginx escolhe pelo cabeçalho `Host`, sem conflito com o site antigo).
 
-### Sem domínio (seu caso agora) — acesso só por `http://SEU_IP`
-
-```bash
-sudo tee /etc/nginx/conf.d/procar-limits.conf > /dev/null <<'EOF'
-limit_req_zone $binary_remote_addr zone=procar_api:10m rate=10r/s;
-EOF
-
-sudo tee /etc/nginx/snippets/procar-security.conf > /dev/null <<'EOF'
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "DENY" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
-EOF
-
-sudo tee /etc/nginx/sites-available/procar > /dev/null <<'EOF'
-server {
-    listen 80 default_server;
-    server_name _;
-    root /var/www/procar/current/frontend/dist;
-    index index.html;
-
-    include /etc/nginx/snippets/procar-security.conf;
-
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_types text/css text/plain application/javascript application/json image/svg+xml;
-
-    location ~* \.(js|css|svg|png|jpg|jpeg|webp|woff2?)$ {
-        include /etc/nginx/snippets/procar-security.conf;
-        expires 30d;
-        add_header Cache-Control "public, immutable" always;
-        access_log off;
-    }
-
-    location = /index.html {
-        include /etc/nginx/snippets/procar-security.conf;
-        add_header Cache-Control "no-cache" always;
-    }
-
-    location / { try_files $uri $uri/ /index.html; }
-
-    location /api/ {
-        limit_req zone=procar_api burst=20 nodelay;
-        proxy_pass http://127.0.0.1:3333/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-
-    client_max_body_size 2M;
-}
-EOF
-
-sudo ln -sfn /etc/nginx/sites-available/procar /etc/nginx/sites-enabled/procar
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-`server_name _;` + `default_server` = "responde por qualquer Host/IP que bater nessa porta 80" — não precisa digitar o IP no arquivo (ele pode até mudar, se um dia você trocar de VPS, sem precisar editar o Nginx). Não existe `sed` de domínio a rodar aqui — não há domínio ainda.
-
-### Com domínio já registrado (pule esta se está sem domínio)
+Uploads de fotos/vídeo de veículo (`CLAUDE.md` §3, até 200MB de vídeo) são maiores que o `client_max_body_size` do site antigo — por isso este bloco tem o seu próprio, maior.
 
 ```bash
-sudo tee /etc/nginx/conf.d/procar-limits.conf > /dev/null <<'EOF'
-limit_req_zone $binary_remote_addr zone=procar_api:10m rate=10r/s;
+sudo tee /etc/nginx/conf.d/dva-limits.conf > /dev/null <<'EOF'
+limit_req_zone $binary_remote_addr zone=dva_api:10m rate=10r/s;
 EOF
 
-sudo tee /etc/nginx/snippets/procar-security.conf > /dev/null <<'EOF'
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "DENY" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
-EOF
-
-sudo tee /etc/nginx/sites-available/procar > /dev/null <<'EOF'
+sudo tee /etc/nginx/sites-available/dva-veiculos > /dev/null <<'EOF'
 server {
     listen 80;
-    server_name seudominio.com.br www.seudominio.com.br;
-    root /var/www/procar/current/frontend/dist;
+    server_name dva.procarservice.com.br;
+    root /var/www/dva-veiculos/current/frontend/dist;
     index index.html;
 
     include /etc/nginx/snippets/procar-security.conf;
@@ -441,172 +245,129 @@ server {
     location / { try_files $uri $uri/ /index.html; }
 
     location /api/ {
-        limit_req zone=procar_api burst=20 nodelay;
-        proxy_pass http://127.0.0.1:3333/api/;
+        limit_req zone=dva_api burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3334/api/;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
+        # Vídeo de até 200MB (CLAUDE.md §3/upload.ts) em rede de tablet/loja —
+        # o timeout padrão (60s) derruba upload/download grande antes de terminar.
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
     }
 
-    client_max_body_size 2M;
+    # Fotos (até 8, 15MB cada) + 1 vídeo (até 200MB) num único multipart —
+    # margem acima do maior arquivo aceito pelo multer (upload.ts).
+    client_max_body_size 250M;
 }
 EOF
 
-sudo sed -i 's/seudominio\.com\.br/SEUDOMINIO_REAL/g' /etc/nginx/sites-available/procar
-sudo ln -sfn /etc/nginx/sites-available/procar /etc/nginx/sites-enabled/procar
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sfn /etc/nginx/sites-available/dva-veiculos /etc/nginx/sites-enabled/dva-veiculos
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-⚠️ **Com domínio (vai fazer HTTPS a seguir):** não teste o login ainda — cookie `Secure` não funciona em `http://`, espere a seção 11.
-**Sem domínio (`COOKIE_SECURE=false` já setado na seção 8):** pode testar o login normalmente por `http://SEU_IP` assim que o PM2 (seção 12) estiver de pé.
-
----
-
-## 11 · HTTPS (2 min)
-
-> ⏭️ **Sem domínio ainda: pule esta seção inteira** e vá direto para a 12 (PM2). O Certbot/Let's Encrypt não emite certificado para IP puro — só para um domínio que resolva por DNS. Você já deixou o `.env` preparado para isso (`COOKIE_SECURE=false`, `CORS_ORIGIN=http://SEU_IP`) na seção 8. Volte aqui quando tiver um domínio (ver seção 11b).
-
+### ⚠️ PORTÃO E — confirma que o site antigo continua no ar
 ```bash
-# PORTÃO E: os dois nomes precisam resolver
-for h in seudominio.com.br www.seudominio.com.br; do echo -n "$h -> "; getent hosts $h | awk '{print $1}' | head -1; done
-
-sudo certbot --nginx -d seudominio.com.br -d www.seudominio.com.br
-sudo certbot renew --dry-run
+sudo nginx -t
+curl -s -o /dev/null -w "%{http_code}\n" https://guia.procarservice.com.br     # ainda 200
+ls /etc/nginx/sites-enabled/                                                   # 'procar' e 'dva-veiculos', os dois
 ```
 
 ---
 
-## 11b · Migrando de IP para domínio (fazer depois, quando tiver um)
-
-Quando registrar o domínio e apontar o DNS (seção 1):
+## 7 · HTTPS (1 min)
 
 ```bash
-# 1. DNS resolvendo? (repita até aparecer o IP da VPS)
-for h in seudominio.com.br www.seudominio.com.br; do echo -n "$h -> "; getent hosts $h | awk '{print $1}' | head -1; done
-
-# 2. Nginx: rode de novo o bloco "Com domínio já registrado" da seção 10
-#    (o `tee` sobrescreve o arquivo inteiro — troca limpa, sem sed, sem duplicar)
-sudo nginx -t && sudo systemctl reload nginx
-
-# 3. Certbot (gera o certificado e já reescreve o server block para HTTPS + redirect)
-sudo certbot --nginx -d seudominio.com.br -d www.seudominio.com.br
+sudo certbot --nginx -d dva.procarservice.com.br
 sudo certbot renew --dry-run
-
-# 4. .env: volta para HTTPS e remove o COOKIE_SECURE=false (rode como procar)
-sed -i '/^COOKIE_SECURE=/d' /var/www/procar/shared/backend/.env
-sed -i 's#^CORS_ORIGIN=.*#CORS_ORIGIN=https://seudominio.com.br#' /var/www/procar/shared/backend/.env
-
-# 5. Reinicia a API com o .env novo
-pm2 restart procar-api --update-env
 ```
 
-⚠️ Depois do passo 4, o cookie de auth volta a ser `Secure` — teste o login **só por `https://`**; por `http://` vai parecer que "não funciona" (é o comportamento esperado, o navegador descarta o cookie).
+Certbot reescreve só o `server{}` de `dva.procarservice.com.br` (identificado pelo `server_name`) — não toca no bloco do site antigo.
 
 ---
 
-## 12 · PM2 (2 min)
+## 8 · PM2 — novo processo, mesmo daemon (2 min)
 
-⚠️ Nunca `sudo pm2` — cria um segundo daemon.
+⚠️ Nunca `sudo pm2`. Não precisa rodar `pm2 startup` de novo — o daemon do usuário `procar` já está registrado como serviço (feito pelo deploy do sistema antigo); um segundo `pm2 start` só soma outro processo nesse mesmo daemon, e `pm2 save` (ao final) grava os dois juntos.
 
 ```bash
-cat > /var/www/procar/shared/ecosystem.config.js <<'EOF'
+cat > /var/www/dva-veiculos/shared/ecosystem.config.js <<'EOF'
 module.exports = {
   apps: [{
-    name: 'procar-api',
+    name: 'dva-veiculos-api',
     script: 'dist/server.js',
-    cwd: '/var/www/procar/current/backend',
-    instances: 1,          // NUNCA cluster: rate limit e job de retenção em memória
+    cwd: '/var/www/dva-veiculos/current/backend',
+    instances: 1,          // NUNCA cluster: rate limit em memória
     exec_mode: 'fork',
     autorestart: true,
     max_memory_restart: '300M',
     kill_timeout: 5000,
     env: { NODE_ENV: 'production' },
-    error_file: '/var/www/procar/shared/logs/error.log',
-    out_file:   '/var/www/procar/shared/logs/out.log',
+    error_file: '/var/www/dva-veiculos/shared/logs/error.log',
+    out_file:   '/var/www/dva-veiculos/shared/logs/out.log',
     time: true,
   }],
 };
 EOF
 
-pm2 start /var/www/procar/shared/ecosystem.config.js
-pm2 startup
-```
-
-⚠️ **Pare aqui — não cole o resto do bloco ainda.** `pm2 startup` só **imprime** um comando, não executa nada sozinho (é proposital: instalar um serviço systemd exige confirmação explícita). Se você colar tudo de uma vez, o shell pula direto para `pm2 save` sem nunca rodar essa linha, e o serviço nunca é criado (é exatamente o que dá `not-found` no PORTÃO F).
-
-Copie **a linha que apareceu no seu terminal** (algo como `[PM2] To setup the Startup Script, copy/paste the following command:` seguido da linha) e rode-a sozinha:
-
-```bash
-sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u procar --hp /home/procar
-```
-
-Só **depois** disso, continue com o resto:
-
-```bash
+pm2 start /var/www/dva-veiculos/shared/ecosystem.config.js
 pm2 save
-pm2 install pm2-logrotate
-pm2 set pm2-logrotate:max_size 20M
-pm2 set pm2-logrotate:retain 14
-pm2 set pm2-logrotate:compress true
 ```
 
 ### ⚠️ PORTÃO F
 ```bash
-systemctl is-enabled pm2-procar        # tem que ser: enabled
+pm2 status                       # 'procar-api' E 'dva-veiculos-api', os dois 'online'
+curl -s http://127.0.0.1:3334/api/health
+systemctl is-enabled pm2-procar  # já era 'enabled' antes — continua sendo, nada muda aqui
 ```
-
-Deu `not-found`? Rode a linha `sudo env PATH=...` acima (a que o `pm2 startup` imprimiu) e depois `pm2 save` de novo — não precisa refazer o resto do bloco.
 
 ---
 
-## 13 · Scripts de deploy e backup (3 min)
+## 9 · Scripts de deploy e backup (3 min)
 
 ```bash
-cat > /var/www/procar/shared/backup-db.sh <<'EOF'
+cat > /var/www/dva-veiculos/shared/backup-db.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
-DEST=/var/backups/procar; mkdir -p "$DEST"
+DEST=/var/backups/dva-veiculos; mkdir -p "$DEST"
 ARQ="$DEST/db-$(date +%Y-%m-%d_%H%M).sql.gz"
-mysqldump --defaults-extra-file=/var/www/procar/shared/.my.cnf \
+mysqldump --defaults-extra-file=/var/www/dva-veiculos/shared/.my.cnf \
   --single-transaction --quick --no-tablespaces --routines --triggers --events \
-  painel_procar | gzip > "$ARQ"
+  dva_veiculos | gzip > "$ARQ"
 gzip -t "$ARQ" || { echo "ERRO: corrompido"; exit 1; }
 gunzip -c "$ARQ" | tail -5 | grep -q "Dump completed" || { echo "ERRO: incompleto"; exit 1; }
 echo "$(date '+%F %T') OK $ARQ ($(du -h "$ARQ" | cut -f1))"
 find "$DEST" -name "db-*.sql.gz" -mtime +14 -delete
 EOF
 
-cat > /var/www/procar/shared/backup-files.sh <<'EOF'
+cat > /var/www/dva-veiculos/shared/backup-files.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
-DEST=/var/backups/procar; mkdir -p "$DEST"
+DEST=/var/backups/dva-veiculos; mkdir -p "$DEST"
 ARQ="$DEST/config-$(date +%Y-%m-%d_%H%M).tar.gz"
-tar -czf "$ARQ" /var/www/procar/shared/backend/.env /var/www/procar/shared/frontend/.env \
-  /var/www/procar/shared/ecosystem.config.js /etc/nginx/sites-available/procar \
-  /etc/nginx/snippets/procar-security.conf /etc/nginx/conf.d/procar-limits.conf \
-  /etc/fail2ban/jail.local 2>/dev/null || true
+tar -czf "$ARQ" /var/www/dva-veiculos/shared/backend/.env /var/www/dva-veiculos/shared/frontend/.env \
+  /var/www/dva-veiculos/shared/ecosystem.config.js /etc/nginx/sites-available/dva-veiculos \
+  /etc/nginx/conf.d/dva-limits.conf 2>/dev/null || true
 echo "$(date '+%F %T') OK $ARQ"
 find "$DEST" -name "config-*.tar.gz" -mtime +14 -delete
 EOF
 
-sudo mkdir -p /var/backups/procar && sudo chown procar:procar /var/backups/procar
-chmod +x /var/www/procar/shared/backup-*.sh
-/var/www/procar/shared/backup-db.sh          # PORTÃO G: precisa imprimir OK
-/var/www/procar/shared/backup-files.sh
+sudo mkdir -p /var/backups/dva-veiculos && sudo chown procar:procar /var/backups/dva-veiculos
+chmod +x /var/www/dva-veiculos/shared/backup-*.sh
+/var/www/dva-veiculos/shared/backup-db.sh          # PORTÃO G: precisa imprimir OK
+/var/www/dva-veiculos/shared/backup-files.sh
 ```
 
-⚠️ **`REPO_URL` abaixo tem que ser o MESMO repositório usado no `git clone` da seção 9** (ex.: `git@github.com:Ryangsl/painel-procar.git`), não o placeholder `USUARIO/procar` — é fácil esquecer de trocar dentro do heredoc. Se esquecer, o primeiro `procar update`/`deploy.sh` falha com `ERROR: Repository not found` (inofensivo — o script já reverte sozinho antes de tocar no `current`, o site no ar não é afetado); corrija com `sed -i 's#^REPO_URL=.*#REPO_URL="git@github.com:SEU_USUARIO/SEU_REPO.git"#' /var/www/procar/deploy.sh` e rode de novo.
+> Uploads de foto/vídeo (`backend/uploads/`, disco local — `CLAUDE.md` §2/§3) **não entram** nesses scripts de backup. São arquivos grandes e crescem sem limite; se quiser protegê-los, um `rsync` incremental separado (ex. para outra máquina) é mais adequado que empacotar tudo em `.tar.gz` diário. Registrado como pendência — decida antes do primeiro cadastro real de veículo em produção.
 
 ```bash
-cat > /var/www/procar/deploy.sh <<'EOF'
+cat > /var/www/dva-veiculos/deploy.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
-APP_DIR=/var/www/procar
-REPO_URL="git@github.com:USUARIO/procar.git"
+APP_DIR=/var/www/dva-veiculos
+REPO_URL="github.com-dva:Ryangsl/procar-dva.git"
 TS=$(date +%Y%m%d%H%M%S)
 REL="$APP_DIR/releases/$TS"
 
@@ -622,12 +383,12 @@ cd "$REL/frontend" && npm ci --include=dev && npm run build && rm -rf node_modul
 
 ANTERIOR=""; [ -L "$APP_DIR/current" ] && ANTERIOR=$(readlink -f "$APP_DIR/current")
 ln -sfn "$REL" "$APP_DIR/current"
-pm2 describe procar-api >/dev/null 2>&1 && pm2 restart procar-api --update-env \
+pm2 describe dva-veiculos-api >/dev/null 2>&1 && pm2 restart dva-veiculos-api --update-env \
   || pm2 start "$APP_DIR/shared/ecosystem.config.js"
 
 OK=0
 for i in $(seq 1 15); do
-  curl -sf --max-time 2 http://127.0.0.1:3333/api/health >/dev/null 2>&1 && { OK=1; break; }
+  curl -sf --max-time 2 http://127.0.0.1:3334/api/health >/dev/null 2>&1 && { OK=1; break; }
   sleep 2
 done
 
@@ -638,76 +399,62 @@ if [ "$OK" -eq 1 ]; then
   done
 else
   echo "❌ Falhou. Revertendo."
-  [ -n "$ANTERIOR" ] && ln -sfn "$ANTERIOR" "$APP_DIR/current" && pm2 restart procar-api --update-env
-  echo "pm2 logs procar-api --lines 50 --nostream"
+  [ -n "$ANTERIOR" ] && ln -sfn "$ANTERIOR" "$APP_DIR/current" && pm2 restart dva-veiculos-api --update-env
+  echo "pm2 logs dva-veiculos-api --lines 50 --nostream"
   exit 1
 fi
 EOF
-chmod +x /var/www/procar/deploy.sh
+chmod +x /var/www/dva-veiculos/deploy.sh
 ```
 
 ```bash
 (crontab -l 2>/dev/null; cat <<'EOF'
-0 3 * * * /var/www/procar/shared/backup-db.sh >> /var/www/procar/shared/logs/backup.log 2>&1
-5 3 * * * /var/www/procar/shared/backup-files.sh >> /var/www/procar/shared/logs/backup.log 2>&1
+10 3 * * * /var/www/dva-veiculos/shared/backup-db.sh >> /var/www/dva-veiculos/shared/logs/backup.log 2>&1
+15 3 * * * /var/www/dva-veiculos/shared/backup-files.sh >> /var/www/dva-veiculos/shared/logs/backup.log 2>&1
 EOF
 ) | crontab -
-crontab -l
+crontab -l    # confira que os 4 horários (dois do site antigo + dois daqui) aparecem, sem duplicar
 ```
 
-> Backup só na VPS não protege contra perder a VPS. Ative **hPanel → VPS → Backups**, ou acrescente `15 3 * * * rsync -az /var/backups/procar/ usuario@outra-maquina:/backups/procar/`.
+Horários (`03:10`/`03:15`) escalonados dos do sistema antigo (`03:00`/`03:05`) de propósito — os dois `mysqldump` correm na mesma instância MySQL, e rodar tudo no mesmo minuto competiria por I/O à toa.
 
 ---
 
-## 14 · Validação final (2 min)
+## 10 · Validação final (2 min)
 
-**Sem domínio (seu caso agora)** — use `http://SEU_IP` em vez de `https://seudominio.com.br`, e pule o teste de redirect 301 (não existe redirect HTTP→HTTPS sem Certbot):
 ```bash
-curl -s http://179.198.102.204/api/health                                              # {"status":"ok"...}
-curl -sI http://179.198.102.204/index.html | grep -ci "content-security"               # 1
-pm2 status                                                                     # online, fork, 1
-sudo fail2ban-client status                                                    # 3 jails
+curl -s https://dva.procarservice.com.br/api/health                                   # {"status":"ok"...}
+curl -sI http://dva.procarservice.com.br | head -1                                     # 301 (redirect do Certbot)
+curl -sI https://dva.procarservice.com.br/index.html | grep -ci "content-security"     # 1
+pm2 status                                                                              # os DOIS processos 'online', fork, 1 instância cada
+curl -s -o /dev/null -w "%{http_code}\n" https://guia.procarservice.com.br             # 200 — sistema antigo intacto
+sudo fail2ban-client status
 sudo reboot
 ```
 
 Após o reboot:
 ```bash
 pm2 status && systemctl is-active nginx mysql fail2ban
-curl -s -o /dev/null -w "%{http_code}\n" http://179.198.102.204                        # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://dva.procarservice.com.br              # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://guia.procarservice.com.br             # 200
 ```
 
-**Com domínio + HTTPS já configurados** (seção 11 feita):
-```bash
-curl -s https://seudominio.com.br/api/health                                  # {"status":"ok"...}
-curl -sI http://seudominio.com.br | head -1                                   # 301
-curl -sI https://seudominio.com.br/index.html | grep -ci "content-security"   # 1
-pm2 status                                                                     # online, fork, 1
-sudo fail2ban-client status                                                    # 3 jails
-sudo reboot
-```
-
-Após o reboot:
-```bash
-pm2 status && systemctl is-active nginx mysql fail2ban
-curl -s -o /dev/null -w "%{http_code}\n" https://seudominio.com.br            # 200
-```
-
-**No navegador:** entrar com `admin@procar.com` + `ADMIN_SENHA_INICIAL` → trocar a senha → criar um consultor em `/usuarios` → rodar o wizard completo → gerar PDF → desligar o wi-fi e conferir que o guia continua funcionando.
+**No navegador:** entrar em `https://dva.procarservice.com.br` com `admin@procar.com` (email de exemplo — o real é o que `db:setup` exibiu no terminal) + `ADMIN_SENHA_INICIAL` → trocar a senha → criar um operador em `/usuarios` → cadastrar um veículo completo (fotos + vídeo) → conferir o protocolo gerado → checar Monitoramento. Em paralelo, confirme que `https://guia.procarservice.com.br` (sistema antigo) continua funcionando normalmente.
 
 ---
 
-## 15 · Atalho `procar` (2 min, opcional mas recomendado)
+## 11 · Atalho `dva-veiculos` (2 min, opcional)
 
-Em vez de lembrar caminhos (`/var/www/procar/deploy.sh`, `ls releases`, `ln -sfn`...), instala um comando único com subcomandos. Roda **uma vez**, como `procar` (nunca `sudo`):
+Mesmo padrão do atalho `procar` já instalado para o sistema antigo, mas apontando pro diretório e processo deste sistema. Os dois comandos coexistem (nomes diferentes, `/usr/local/bin/procar` não é sobrescrito).
 
 ```bash
-sudo tee /usr/local/bin/procar > /dev/null <<'EOF'
+sudo tee /usr/local/bin/dva-veiculos > /dev/null <<'EOF'
 #!/bin/bash
 set -euo pipefail
-APP_DIR=/var/www/procar
+APP_DIR=/var/www/dva-veiculos
 
 if [ "$(id -u)" -eq 0 ]; then
-  echo "Não rode 'procar' com sudo/root — rode como o usuário procar." >&2
+  echo "Não rode 'dva-veiculos' com sudo/root — rode como o usuário procar." >&2
   exit 1
 fi
 
@@ -722,7 +469,7 @@ case "${1:-}" in
     free -h
     ;;
   logs)
-    pm2 logs procar-api --lines "${2:-50}" --nostream
+    pm2 logs dva-veiculos-api --lines "${2:-50}" --nostream
     ;;
   rollback)
     CUR=$(readlink -f "$APP_DIR/current")
@@ -739,7 +486,7 @@ case "${1:-}" in
       *) echo "Cancelado."; exit 1 ;;
     esac
     ln -sfn "$APP_DIR/releases/$PREV" "$APP_DIR/current"
-    pm2 restart procar-api --update-env
+    pm2 restart dva-veiculos-api --update-env
     echo "✔ Revertido para $PREV"
     ;;
   backup)
@@ -747,54 +494,32 @@ case "${1:-}" in
     "$APP_DIR/shared/backup-files.sh"
     ;;
   *)
-    echo "Uso: procar {update|status|logs [N]|rollback|backup}"
+    echo "Uso: dva-veiculos {update|status|logs [N]|rollback|backup}"
     exit 1
     ;;
 esac
 EOF
-sudo chmod +x /usr/local/bin/procar
+sudo chmod +x /usr/local/bin/dva-veiculos
 
-procar status          # testa agora
+dva-veiculos status
 ```
 
-| Comando | O que faz |
-|---|---|
-| `procar update` | Roda o `deploy.sh` completo: backup do banco → clone de um release novo → build → `db:setup` → troca o `current` → reinicia o PM2 → checa `/api/health` → **reverte sozinho se falhar**. É o único jeito de atualizar o código — nunca `git pull` manual (ver seção "Uso diário"). |
-| `procar status` | `pm2 status` + espaço em disco + memória — checagem rápida de saúde. |
-| `procar logs [N]` | Últimas N linhas do log da API (padrão 50). |
-| `procar rollback` | Mostra o release atual e o anterior, pede confirmação (`s`/`N`) e só então troca o symlink e reinicia — nunca reverte sem você confirmar. |
-| `procar backup` | Roda os dois scripts de backup na hora (fora do horário do cron), útil antes de uma mudança arriscada. |
+`dva-veiculos status` chama `pm2 status` (mesmo daemon do sistema antigo), então mostra os **dois** processos — intencional, é uma visão de saúde da VPS inteira. `dva-veiculos logs`/`rollback`/`update` só afetam `dva-veiculos-api`.
 
 ---
 
 ## Uso diário
 
-**Onde fica o projeto:** o código "vivo" é o symlink `/var/www/procar/current` → `releases/TIMESTAMP/`. Cada deploy clona um release **novo** (`git clone --depth 1`), nunca dá `git pull` dentro do release existente — se você `git pull` manualmente em `current/backend`, o próximo `deploy.sh` (ou `procar update`) clona do zero, troca o symlink e a poda automática (mantém os 5 releases mais recentes) acaba apagando o que você mexeu à mão. `.env`, `ecosystem.config.js` e `logs/` ficam fora disso, em `shared/` (sobrevivem a todos os deploys).
-
 ```bash
-procar update                                    # atualizar (SEMPRE por aqui, nunca git pull manual)
-procar rollback                                  # reverter para o release anterior (pede confirmação)
-procar status                                    # pm2 + disco + memória
-procar logs                                      # últimas 50 linhas do log da API
+dva-veiculos update                              # atualizar (SEMPRE por aqui, nunca git pull manual em current/)
+dva-veiculos rollback                            # reverter para o release anterior (pede confirmação)
+dva-veiculos status                              # pm2 (os dois sistemas) + disco + memória
+dva-veiculos logs                                # últimas 50 linhas do log deste backend
 ```
 
-Sem o atalho instalado (seção 15), os mesmos comandos por extenso:
-```bash
-/var/www/procar/deploy.sh                       # atualizar
+O comando `procar` (sistema antigo) continua funcionando exatamente como antes, sem qualquer alteração.
 
-ls -1t /var/www/procar/releases                 # rollback manual
-ln -sfn /var/www/procar/releases/ANTERIOR /var/www/procar/current
-pm2 restart procar-api --update-env
-
-pm2 logs procar-api --lines 50 --nostream       # ver erros
-pm2 status; df -h; free -h                      # saúde rápida
-```
-
-**Backups:** rodam sozinhos via cron (seção 13) — `backup-db.sh` às 03:00 (dump do MySQL) e `backup-files.sh` às 03:05 (`.env`/Nginx/Fail2Ban), ambos em `/var/backups/procar/`, retendo 14 dias. Isso só protege contra erro de deploy/dado corrompido — **não** protege contra perder a VPS inteira (backup e app na mesma máquina); ative também o backup do hPanel ou copie `/var/backups/procar/` pra outro lugar.
-
-**Manutenção mínima:** semanal → `pm2 status` + `df -h` + conferir se o backup de ontem existe. Mensal → `sudo apt upgrade -y`, reboot se `/var/run/reboot-required` existir, `npm audit --omit=dev`, testar uma restauração de backup.
-
-Detalhes, explicações e rotinas completas: **[DEPLOY.md](./DEPLOY.md)** · problemas conhecidos: **[AUDITORIA-DEPLOY.md](./AUDITORIA-DEPLOY.md)**.
+**Backups:** cron às `03:10`/`03:15` (ver seção 9), em `/var/backups/dva-veiculos/`, retendo 14 dias — independentes dos backups do sistema antigo (`/var/backups/procar/`).
 
 ---
 
@@ -802,26 +527,23 @@ Detalhes, explicações e rotinas completas: **[DEPLOY.md](./DEPLOY.md)** · pro
 
 | Sintoma | Comando |
 |---|---|
-| Site não abre | `sudo nginx -t; sudo tail -30 /var/log/nginx/error.log` |
-| API dá 502 | `pm2 logs procar-api --lines 50 --nostream; pgrep -a -f "PM2\["` |
-| Login não persiste | Em `https://`: cookie é `Secure` como esperado. Em `http://SEU_IP` (sem domínio): falta `COOKIE_SECURE=false` no `.env` — confira e `pm2 restart procar-api --update-env`. |
-| Todos bloqueados | Falta `app.set('trust proxy', 1)` |
-| Backup falhando | Falta `--no-tablespaces` (erro de privilégio PROCESS) |
-| Backend não voltou após reboot | `systemctl is-enabled pm2-procar` → rodar `pm2 startup` |
-| Trancado fora do SSH | Terminal do navegador no hPanel; `sudo fail2ban-client set sshd unbanip SEU_IP` |
+| `dva.procarservice.com.br` não abre, `guia.procarservice.com.br` continua ok | `sudo nginx -t; sudo tail -30 /var/log/nginx/error.log` — provavelmente só o `server{}` novo tem erro |
+| API do DVA dá 502 | `pm2 logs dva-veiculos-api --lines 50 --nostream` |
+| Upload de vídeo grande falha/trava | Confira `client_max_body_size 250M` e `proxy_read_timeout 180s` no site `dva-veiculos` (seção 6) — não são os mesmos valores do site antigo |
+| Cross-database falha (`vehicle_brands` não aparece) | `mysql -u dva_app -p painel_procar -e "SELECT 1;"` — se der access denied, faltou o `GRANT SELECT` da seção 2 |
+| `git clone` do DVA falha, mas `git clone` do antigo funciona | Confirme o alias `github.com-dva` em `~/.ssh/config` e teste `ssh -T git@github.com-dva` isoladamente |
+| Backup do DVA falhando | Falta `--no-tablespaces` (privilégio PROCESS) — mesmo motivo do sistema antigo, script próprio já inclui a flag |
+| PM2 não sobe o `dva-veiculos-api` no boot | Não precisa de novo `pm2 startup` — confira só `pm2 save` foi executado após o `pm2 start` da seção 8 |
 
 ---
 
-## Portas usadas por esta aplicação
+## Portas e coexistência — visão final
 
-Se a VPS também vai hospedar outro software, aqui está o que este sistema ocupa, pra não colidir:
+| Porta/recurso | Sistema antigo | Grupo ProCar (procar-dva) |
+|---|---|---|
+| 22 SSH | compartilhada | compartilhada |
+| 80/443 Nginx | compartilhado — `server{}` por `server_name` | compartilhado — `server{}` por `server_name` |
+| Backend (127.0.0.1) | `3333` | `3334` |
+| MySQL (127.0.0.1) | mesma instância, banco `painel_procar` | mesma instância, banco `dva_veiculos` (+ leitura em `painel_procar`) |
 
-| Porta | Serviço | UFW (seção 3) | Observação |
-|---|---|---|---|
-| 22 | SSH | `allow 22/tcp` | Compartilhada com qualquer outro uso da VPS — não é específica deste app. |
-| 80 | Nginx (HTTP) | `allow 80/tcp` | Serve o frontend + proxy de `/api/`. Outro site na mesma VPS entra como um novo `server {}` (outro `server_name`) no mesmo Nginx (seção 10) — **não** abra outra porta pra isso. |
-| 443 | Nginx (HTTPS) | `allow 443/tcp` | Idem, com TLS (seção 11). |
-| 3333 | Backend Node (PM2 `procar-api`) | **Não liberada** — só `127.0.0.1:3333`, o Nginx fala com ela via `proxy_pass` (seção 10) | Se outro software desta VPS também for Node/Express, dê a ele uma porta diferente (ex. 3334) no `PORT` do `.env` dele — 3333 já é deste app. |
-| 3306 | MySQL | **Não liberada** — só `127.0.0.1:3306` | Uma única instância `mysql-server` serve a VPS inteira (dois bancos deste app — seção 6/8 — mais o que outro software precisar). Bancos adicionais entram como novo `CREATE DATABASE` + usuário, **não** como outra instância/porta MySQL. |
-
-`sudo ss -tlnp` na VPS lista o que já está escutando em cada porta — rode antes de subir outro software, pra confirmar que a porta escolhida está livre.
+Para um **terceiro** sistema na mesma VPS: repita este padrão — porta livre (ex. `3335`), banco/usuário MySQL próprio, `server{}` Nginx com `server_name` próprio, processo PM2 com nome próprio no mesmo daemon. `sudo ss -tlnp` confirma portas livres antes de escolher uma nova.
