@@ -4,13 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Logo';
 import './login.css';
 
-// Textura de fundo do painel esquerdo (placeholder — fundo claro, o véu
-// escuro em login.css compensa e a deixa quase imperceptível, só ambiente).
-const IMAGEM_PAINEL = '/images/fundo-supercar.png';
-// Marca d'água grande e centralizada no painel esquerdo (modelo enviado
-// pelo cliente em 2026-08-11).
-const MARCA_DAGUA = '/images/procar_transp.png';
-
 function IconePessoa(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -103,9 +96,13 @@ export function LoginPage() {
   return (
     <div className="login-tela">
       <div className="login-tela-imagem">
-        <img src={IMAGEM_PAINEL} alt="" className="login-tela-foto" />
-        <div className="login-tela-imagem-veu" />
-        <img src={MARCA_DAGUA} alt="" className="login-tela-marca-dagua" />
+        <div className="login-tela-instituicional">
+          <Logo height={110} className="login-tela-logo-img login-tela-logo-grande" />
+          <div className="login-tela-instituicional-texto">
+            <span className="login-tela-cd">CD</span>
+            <span className="login-tela-grupo">Grupo DVA</span>
+          </div>
+        </div>
         <div className="login-tela-corte" />
         <div className="login-tela-selo">
           <span className="login-tela-selo-icone">

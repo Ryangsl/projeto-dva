@@ -79,6 +79,14 @@
   overflow-y: auto;
   padding-right: 4px;
 }
+/* Em telas largas os chips de modelo (flex-wrap) já cabem mais por linha —
+   cresce a área visível antes de precisar rolar, mantendo o scroll interno
+   como rede de segurança pra listas muito grandes (nunca removido). */
+@media (min-width: 1200px) {
+  .guia-chips-scroll {
+    max-height: 320px;
+  }
+}
 .guia-col-titulo {
   font-size: 1.05rem;
   color: var(--heading);
@@ -151,6 +159,12 @@
     gap: 18px;
   }
 }
+@media (min-width: 1300px) {
+  .marca-grade {
+    grid-template-columns: repeat(auto-fill, minmax(162px, 1fr));
+    gap: 20px;
+  }
+}
 
 /* Card de marca: só a logo (fundo transparente, ver BrandLogo.tsx), sem o
    nome — sobrescreve o flex-direction:column/align-items:flex-start padrão
@@ -177,6 +191,12 @@
   .chip-marca {
     height: 96px;
     padding: 14px;
+  }
+}
+@media (min-width: 1300px) {
+  .chip-marca {
+    height: 110px;
+    padding: 18px;
   }
 }
 .marca-logo {
@@ -220,9 +240,14 @@
 }
 
 
-/* ===== Wizard de cadastro (tela 1) ===== */
+/* ===== Wizard de cadastro (tela 1) =====
+   Mobile-first: até ~800px o comportamento é o de sempre (card único,
+   padding enxuto). Dos breakpoints em diante o container cresce bastante
+   (era max-width:880px — um "cartão flutuando" que ficava alto conforme o
+   usuário avançava) para aproveitar a largura de tablets/desktops grandes e
+   crescer menos na vertical, sem exagerar em monitores ultra-wide. */
 .wizard {
-  max-width: 880px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px 16px 40px;
   display: grid;
@@ -236,8 +261,10 @@
     padding: 28px 24px 56px;
     gap: 16px;
   }
-  .wizard-passo {
-    padding: 20px;
+}
+@media (min-width: 1200px) {
+  .wizard {
+    padding: 32px 40px 64px;
   }
 }
 .wizard-marca {
@@ -260,13 +287,37 @@
   max-width: 34ch;
   text-wrap: balance;
 }
-.wizard-passo {
+/* Card único contendo Marca/Modelo/Chassi/opcionais — antes cada etapa
+   (.wizard-passo) era um card separado com sombra/borda própria e `gap`
+   entre eles; agora o fundo/borda/sombra/raio vivem aqui, e cada etapa vira
+   uma seção "plana" dentro dele (ver .wizard-passo abaixo), com uma linha
+   fina entre seções em vez de um card inteiro se repetindo. */
+.wizard-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--raio);
   box-shadow: var(--sombra);
+}
+.wizard-passo {
   padding: 16px;
   animation: wizard-entrar 0.25s ease-out;
+}
+/* Divisória entre etapas — só entre seções consecutivas realmente
+   renderizadas (React não deixa rastro de uma etapa condicional ainda não
+   revelada, então o seletor de irmão adjacente já pula direto pra próxima
+   que existe de verdade). */
+.wizard-passo + .wizard-passo {
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 800px) {
+  .wizard-passo {
+    padding: 24px 28px;
+  }
+}
+@media (min-width: 1200px) {
+  .wizard-passo {
+    padding: 28px 36px;
+  }
 }
 @keyframes wizard-entrar {
   from {

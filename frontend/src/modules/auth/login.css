@@ -1,13 +1,13 @@
-/* Tela de login — layout split-panel (foto do veículo + formulário),
+/* Tela de login — layout split-panel (composição institucional + formulário),
    adaptado do modelo visual enviado pelo cliente. FIXO escuro — não reage ao
    ThemeToggle (o modelo de referência não tem alternância de tema) — por
    isso usa cores hardcoded em vez dos tokens de --bg/--surface/etc. de
    global.css.
 
    Mobile-first: `.login-tela-imagem` fica escondida por padrão (numa tela de
-   celular a foto só rouba espaço dos campos) e só aparece a partir de
-   ~860px, quando sobra largura de verdade para as duas colunas lado a lado
-   sem apertar o formulário. */
+   celular a composição institucional só rouba espaço dos campos) e só
+   aparece a partir de ~860px, quando sobra largura de verdade para as duas
+   colunas lado a lado sem apertar o formulário. */
 .login-tela {
   min-height: 100vh;
   min-height: 100dvh;
@@ -15,7 +15,7 @@
   background: #060a10;
 }
 
-/* ===== Painel da foto (metade esquerda, só a partir de ~860px) ===== */
+/* ===== Painel institucional (metade esquerda, só a partir de ~860px) ===== */
 .login-tela-imagem {
   position: relative;
   flex: 1 1 55%;
@@ -27,39 +27,72 @@
     display: block;
   }
 }
-.login-tela-foto {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-/* Véu escuro bem forte sobre a foto: no modelo atual ela é só uma textura
-   ambiente atrás da marca d'água (não mais o "fundo de foto" reconhecível
-   das versões anteriores desta tela) — por isso a opacidade é bem mais alta
-   que antes (troca de imagem é só o `src` em IMAGEM_PAINEL, no
-   LoginPage.tsx). */
-.login-tela-imagem-veu {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(4, 8, 14, 0.86) 0%, rgba(4, 8, 14, 0.72) 35%, rgba(4, 8, 14, 0.95) 100%),
-    linear-gradient(90deg, rgba(4, 8, 14, 0.55) 0%, rgba(4, 8, 14, 0.88) 100%);
-}
-/* Marca d'água grande e centralizada (modelo enviado pelo cliente em
-   2026-08-11) — puramente decorativa (pointer-events:none) e discreta
-   (opacity baixa), nunca deformada (object-fit:contain). */
-.login-tela-marca-dagua {
+/* Logo PROCAR (branca, mesmo filtro de .login-tela-logo-img) + "CD" + "Grupo
+   DVA", centralizados no painel — composição institucional (modelo enviado
+   pelo cliente em 2026-08-11), substituindo a foto/marca d'água de versões
+   anteriores desta tela. */
+.login-tela-instituicional {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(82%, 720px);
-  height: auto;
-  object-fit: contain;
-  opacity: 0.14;
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.login-tela-logo-grande {
+  height: 140px !important;
+}
+/* O PNG da logo (logo-procar-preto.png) tem bastante espaço transparente
+   embutido acima/abaixo do desenho (~34% em cima, ~37% embaixo da altura
+   total, medido no arquivo) — um `gap` comum entre a logo e o texto somava a
+   esse espaço já embutido, abrindo um vão grande demais. A margem negativa
+   aqui compensa esse espaço em branco do arquivo (escala junto com a altura
+   da logo por breakpoint), deixando uns ~8px de respiro real. */
+.login-tela-instituicional-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: -44px;
+}
+@media (min-width: 1200px) {
+  .login-tela-logo-grande {
+    height: 168px !important;
+  }
+  .login-tela-instituicional-texto {
+    margin-top: -53px;
+  }
+}
+@media (min-width: 1600px) {
+  .login-tela-logo-grande {
+    height: 192px !important;
+  }
+  .login-tela-instituicional-texto {
+    margin-top: -62px;
+  }
+}
+.login-tela-cd {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 7px;
+  color: #f2f5f9;
+}
+.login-tela-grupo {
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: 3.5px;
+  color: #aab6c6;
+}
+@media (min-width: 1200px) {
+  .login-tela-cd {
+    font-size: 2.3rem;
+    letter-spacing: 8px;
+  }
+  .login-tela-grupo {
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+  }
 }
 /* Linha diagonal com brilho, sugerindo o corte entre as duas colunas do
    modelo de referência. */
