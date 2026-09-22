@@ -1,0 +1,287 @@
+/* Tela de login — layout split-panel (composição institucional + formulário),
+   adaptado do modelo visual enviado pelo cliente. FIXO escuro — não reage ao
+   ThemeToggle (o modelo de referência não tem alternância de tema) — por
+   isso usa cores hardcoded em vez dos tokens de --bg/--surface/etc. de
+   global.css.
+
+   Mobile-first: `.login-tela-imagem` fica escondida por padrão (numa tela de
+   celular a composição institucional só rouba espaço dos campos) e só
+   aparece a partir de ~860px, quando sobra largura de verdade para as duas
+   colunas lado a lado sem apertar o formulário. */
+.login-tela {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  background: #060a10;
+}
+
+/* ===== Painel institucional (metade esquerda, só a partir de ~860px) ===== */
+.login-tela-imagem {
+  position: relative;
+  flex: 1 1 55%;
+  display: none;
+  overflow: hidden;
+}
+@media (min-width: 860px) {
+  .login-tela-imagem {
+    display: block;
+  }
+}
+/* Logo PROCAR (branca, mesmo filtro de .login-tela-logo-img) + "CD" + "Grupo
+   DVA", centralizados no painel — composição institucional (modelo enviado
+   pelo cliente em 2026-08-11), substituindo a foto/marca d'água de versões
+   anteriores desta tela. */
+.login-tela-instituicional {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.login-tela-logo-grande {
+  height: 140px !important;
+}
+/* O PNG da logo (logo-procar-preto.png) tem bastante espaço transparente
+   embutido acima/abaixo do desenho (~34% em cima, ~37% embaixo da altura
+   total, medido no arquivo) — um `gap` comum entre a logo e o texto somava a
+   esse espaço já embutido, abrindo um vão grande demais. A margem negativa
+   aqui compensa esse espaço em branco do arquivo (escala junto com a altura
+   da logo por breakpoint), deixando uns ~8px de respiro real. */
+.login-tela-instituicional-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: -44px;
+}
+@media (min-width: 1200px) {
+  .login-tela-logo-grande {
+    height: 168px !important;
+  }
+  .login-tela-instituicional-texto {
+    margin-top: -53px;
+  }
+}
+@media (min-width: 1600px) {
+  .login-tela-logo-grande {
+    height: 192px !important;
+  }
+  .login-tela-instituicional-texto {
+    margin-top: -62px;
+  }
+}
+.login-tela-cd {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 7px;
+  color: #f2f5f9;
+}
+.login-tela-grupo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 3.5px;
+  color: #f2f5f9;
+}
+@media (min-width: 1200px) {
+  .login-tela-cd {
+    font-size: 2.3rem;
+    letter-spacing: 8px;
+  }
+  .login-tela-grupo {
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+  }
+}
+/* Linha diagonal com brilho, sugerindo o corte entre as duas colunas do
+   modelo de referência. */
+.login-tela-corte {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, #2f8ff0 30%, #2f8ff0 70%, transparent);
+  box-shadow: 0 0 18px 1px rgba(47, 143, 240, 0.55);
+  transform: skewX(-6deg);
+}
+.login-tela-selo {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-tela-selo-icone {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cfd8e3;
+}
+.login-tela-selo-icone svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-selo p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #cfd8e3;
+  max-width: 220px;
+}
+.login-tela-selo strong {
+  color: #4fa8f5;
+  font-weight: 700;
+}
+
+/* ===== Painel do formulário (metade direita, ou tela inteira no celular) ===== */
+.login-tela-form {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+.login-tela-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-tela-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+/* Força a arte branca sempre (a logo original é preta) — este painel não
+   segue o tema claro/escuro do resto do app, então não pode depender de
+   --logo-filtro (ver global.css), que só inverte no tema escuro. */
+.login-tela-logo-img {
+  filter: brightness(0) invert(1) !important;
+}
+/* Sem a frase de propósito abaixo da logo (removida a pedido do cliente),
+   este espaçador é o único respiro entre a marca e os campos — mais
+   generoso que o de um cartão com legenda, pro bloco não ficar "grudado". */
+.login-tela-sep {
+  width: 64px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #2f8ff0, transparent);
+  margin: 16px auto 34px;
+}
+
+.login-tela-erro {
+  color: #ff9f9f;
+  background: rgba(255, 80, 80, 0.12);
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
+.login-tela-campo {
+  margin-bottom: 18px;
+}
+.login-tela-campo label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd4e0;
+  margin-bottom: 7px;
+}
+.login-tela-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.login-tela-input-icone {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: #6c7891;
+  pointer-events: none;
+}
+.login-tela-input-wrap input {
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 14px 13px 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e7ecf2;
+  font-size: 0.98rem;
+}
+/* Campo de senha reserva espaço à direita para o botão de mostrar/ocultar. */
+.login-tela-campo-senha input {
+  padding-right: 42px;
+}
+.login-tela-input-wrap input::placeholder {
+  color: #5c687d;
+}
+.login-tela-input-wrap input:focus {
+  outline: none;
+  border-color: #2f8ff0;
+  background: rgba(47, 143, 240, 0.08);
+}
+.login-tela-olho {
+  position: absolute;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: #6c7891;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 7px;
+}
+.login-tela-olho svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-olho:hover,
+.login-tela-olho:focus-visible {
+  color: #2f8ff0;
+  background: rgba(47, 143, 240, 0.1);
+}
+
+.login-tela-entrar {
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b9dfb, #1f6fd6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 10px 24px -8px rgba(47, 143, 240, 0.6);
+  transition: filter 0.15s ease;
+}
+.login-tela-entrar svg {
+  width: 18px;
+  height: 18px;
+}
+.login-tela-entrar:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.login-tela-entrar:disabled {
+  opacity: 0.65;
+  cursor: default;
+}

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
-const TITULO_SISTEMA = 'Gerenciamento e distribuição de veículos do Grupo ProCar';
+const TITULO_SISTEMA = 'Gerenciamento e distribuição de veículos do Grupo DVA';
 
 // Faixa fixa no topo das telas autenticadas: logo em destaque + título do
 // sistema (fixo, igual em toda tela — não muda por página), e à direita as

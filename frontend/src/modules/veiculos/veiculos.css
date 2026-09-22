@@ -79,6 +79,14 @@
   overflow-y: auto;
   padding-right: 4px;
 }
+/* Em telas largas os chips de modelo (flex-wrap) já cabem mais por linha —
+   cresce a área visível antes de precisar rolar, mantendo o scroll interno
+   como rede de segurança pra listas muito grandes (nunca removido). */
+@media (min-width: 1200px) {
+  .guia-chips-scroll {
+    max-height: 320px;
+  }
+}
 .guia-col-titulo {
   font-size: 1.05rem;
   color: var(--heading);
@@ -119,10 +127,127 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
+/* ===== Grade de marcas (etapa 1 do wizard) =====
+   Grid dedicado — não reaproveita .guia-chips/flex-wrap de propósito: com
+   auto-fill + minmax(_, 1fr), cada linha divide o espaço igualmente entre as
+   colunas que cabem, então se a última linha tiver menos itens que as
+   anteriores (ex.: 7 marcas em linhas de 5+2), eles esticam pra acompanhar a
+   largura das colunas de cima — em vez de sobrar pequenos e soltos num mar
+   de espaço vazio (o que o flex-wrap fazia). O mínimo de coluna cresce nos
+   breakpoints maiores pra aproveitar o espaço extra com cards maiores, não
+   só mais colunas na mesma largura pequena. */
+.marca-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 12px;
+}
+@media (min-width: 480px) {
+  .marca-grade {
+    grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
+    gap: 14px;
+  }
+}
+@media (min-width: 860px) {
+  .marca-grade {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 16px;
+  }
+}
+@media (min-width: 1200px) {
+  .marca-grade {
+    grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+    gap: 18px;
+  }
+}
+@media (min-width: 1300px) {
+  .marca-grade {
+    grid-template-columns: repeat(auto-fill, minmax(162px, 1fr));
+    gap: 20px;
+  }
+}
 
-/* ===== Wizard de cadastro (tela 1) ===== */
+/* Card de marca: só a logo (fundo transparente, ver BrandLogo.tsx), sem o
+   nome — sobrescreve o flex-direction:column/align-items:flex-start padrão
+   de .chip (usado pelos chips de modelo, com nome+código empilhados) para
+   centralizar a logo nos dois eixos. O nome da marca não desaparece da
+   interface: vira `aria-label`/`title` no botão (leitor de tela e tooltip
+   no hover), já que a logo sozinha não é suficiente pra quem não reconhece
+   o desenho de cor.
+
+   Fundo/borda propositalmente reaproveitam --surface/--border-forte de
+   .chip, não um valor novo: já são exatamente "branco no claro, um tom
+   sólido diferente do fundo da página no escuro, com borda sutil" — só a
+   altura/padding/tamanho da logo são específicos desta variante (card
+   generoso o bastante pra logo não perder detalhe ao ser renderizada
+   pequena, sem sobrar espaço vazio demais dentro dele). */
+.chip-marca {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 84px;
+  padding: 12px;
+}
+@media (min-width: 860px) {
+  .chip-marca {
+    height: 96px;
+    padding: 14px;
+  }
+}
+@media (min-width: 1300px) {
+  .chip-marca {
+    height: 110px;
+    padding: 18px;
+  }
+}
+.marca-logo {
+  flex: none;
+}
+/* Logo mono (preto sólido, sem nenhuma outra cor no arquivo — só RAM e BYD,
+   ver BrandLogo.tsx) invisível sobre o fundo escuro do card no tema escuro —
+   reaproveita o mesmo filtro que já inverte a logo PROCAR (--logo-filtro,
+   ver global.css: none no claro, inverte no escuro). */
+.marca-logo-mono {
+  filter: var(--logo-filtro);
+}
+/* Demais marcas (Mercedes/Chrysler têm um branco opaco por trás do desenho;
+   Jeep/Denza/Dodge são coloridas de verdade) — nenhuma pode ser invertida
+   sem destruir a arte original. Em vez disso, halo claro sutil nas bordas só
+   no tema escuro (--marca-logo-realce), reforça o contraste dos trechos
+   escuros (azul bem escuro da Denza, texto preto da Dodge/Chrysler) sem
+   mudar nenhum pixel da arte. */
+.marca-logo-realce {
+  filter: var(--marca-logo-realce);
+}
+/* Card selecionado força fundo branco (em vez do azul sólido padrão de
+   .chip-ativo) só nesta variante: a cor real de cada marca (preta, azul,
+   preta+vermelha...) preservada em cima de branco garante contraste em
+   qualquer combinação de tema/marca — um fundo azul sólido apagaria logos
+   pretas e quase somem as azuis (Jeep/Denza têm um azul próximo do acento).
+   Por isso a logo mono também reseta o filtro (a arte preta original já tem
+   contraste de sobra sobre branco) e o halo da colorida some (sem função
+   sobre um fundo já claro). */
+.chip-marca.chip-ativo {
+  background: #fff;
+  border-color: var(--accent-solid);
+  color: var(--heading);
+  box-shadow: 0 0 0 2px var(--accent-solid) inset;
+}
+.chip-marca.chip-ativo .marca-logo-mono {
+  filter: none;
+}
+.chip-marca.chip-ativo .marca-logo-realce {
+  filter: none;
+}
+
+
+/* ===== Wizard de cadastro (tela 1) =====
+   Mobile-first: até ~800px o comportamento é o de sempre (card único,
+   padding enxuto). Dos breakpoints em diante o container cresce bastante
+   (era max-width:880px — um "cartão flutuando" que ficava alto conforme o
+   usuário avançava) para aproveitar a largura de tablets/desktops grandes e
+   crescer menos na vertical, sem exagerar em monitores ultra-wide. */
 .wizard {
-  max-width: 880px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px 16px 40px;
   display: grid;
@@ -136,8 +261,10 @@
     padding: 28px 24px 56px;
     gap: 16px;
   }
-  .wizard-passo {
-    padding: 20px;
+}
+@media (min-width: 1200px) {
+  .wizard {
+    padding: 32px 40px 64px;
   }
 }
 .wizard-marca {
@@ -160,13 +287,37 @@
   max-width: 34ch;
   text-wrap: balance;
 }
-.wizard-passo {
+/* Card único contendo Marca/Modelo/Chassi/opcionais — antes cada etapa
+   (.wizard-passo) era um card separado com sombra/borda própria e `gap`
+   entre eles; agora o fundo/borda/sombra/raio vivem aqui, e cada etapa vira
+   uma seção "plana" dentro dele (ver .wizard-passo abaixo), com uma linha
+   fina entre seções em vez de um card inteiro se repetindo. */
+.wizard-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--raio);
   box-shadow: var(--sombra);
+}
+.wizard-passo {
   padding: 16px;
   animation: wizard-entrar 0.25s ease-out;
+}
+/* Divisória entre etapas — só entre seções consecutivas realmente
+   renderizadas (React não deixa rastro de uma etapa condicional ainda não
+   revelada, então o seletor de irmão adjacente já pula direto pra próxima
+   que existe de verdade). */
+.wizard-passo + .wizard-passo {
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 800px) {
+  .wizard-passo {
+    padding: 24px 28px;
+  }
+}
+@media (min-width: 1200px) {
+  .wizard-passo {
+    padding: 28px 36px;
+  }
 }
 @keyframes wizard-entrar {
   from {

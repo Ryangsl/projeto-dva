@@ -73,11 +73,14 @@ export const env = {
   // obrigatória (não há valor padrão); em desenvolvimento, o setup gera uma
   // aleatória quando ausente. Ver `database/setup.ts`.
   adminSenhaInicial: process.env.ADMIN_SENHA_INICIAL,
-  // Chave da API pública da FIPE, usada só pelos scripts manuais de
-  // `database/import-fipe/` (não pelo servidor). Ausente por padrão — cada
-  // script valida a presença antes de rodar. Ver IMPORTACAO-FIPE.md.
+  // Token OPCIONAL da API pública da FIPE (v2, fipe.parallelum.com.br), usado
+  // só pelos scripts manuais de `database/import-fipe/` (não pelo servidor).
+  // A API funciona sem token (limite de 500 requisições/dia); um token
+  // gratuito (cadastro em fipe.parallelum.com.br) eleva para 1000/dia — nunca
+  // é enviado como Bearer, e sim no header `X-Subscription-Token`. Ver
+  // IMPORTACAO-FIPE.md.
   fipe: {
-    apiKey: process.env.FIPE_API_KEY,
+    subscriptionToken: process.env.FIPE_SUBSCRIPTION_TOKEN,
   },
 };
 

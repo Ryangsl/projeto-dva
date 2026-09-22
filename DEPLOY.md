@@ -901,9 +901,10 @@ ADMIN_SENHA_INICIAL=UMA_SENHA_FORTE_QUE_SO_VOCE_SABE
 # Endereço final do sistema — com https:// e SEM barra no fim
 CORS_ORIGIN=https://seudominio.com.br
 
-# Só necessária se for usar a Opção B da Seção 12.5 (importar veículos FIPE
-# direto na VPS). Se for restaurar um dump (Opção A), pode deixar vazia.
-FIPE_API_KEY=
+# Opcional — API v2 da FIPE funciona sem token (500 req/dia); só preencha se
+# quiser o limite maior (1000/dia, cadastro grátis em fipe.parallelum.com.br).
+# Usada só na Opção B da Seção 12.5 (importar veículos FIPE direto na VPS).
+FIPE_SUBSCRIPTION_TOKEN=
 ```
 
 Os pontos que mais geram dúvida:
@@ -1042,7 +1043,7 @@ No **servidor**:
 mysql -u procar_app -p painel_procar < /var/www/procar/shared/veiculos.sql
 ```
 
-**Opção B — importar direto da FIPE na VPS** (primeira publicação sem base local, ou para atualizar o catálogo depois). Garanta antes que `FIPE_API_KEY` está preenchida em `/var/www/procar/shared/backend/.env` (Seção 11.1):
+**Opção B — importar direto da FIPE na VPS** (primeira publicação sem base local, ou para atualizar o catálogo depois). Não exige nenhuma variável obrigatória — a API v2 da FIPE funciona sem token (`FIPE_SUBSCRIPTION_TOKEN` em `/var/www/procar/shared/backend/.env`, Seção 11.1, é opcional e só eleva o limite diário):
 ```bash
 npm run import:fipe:marcas
 ```
