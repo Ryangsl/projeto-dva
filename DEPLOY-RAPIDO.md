@@ -142,7 +142,7 @@ JWT_SECRET=$JWT
 JWT_EXPIRES_IN=30m
 ADMIN_SENHA_INICIAL=TROQUE_SENHA_ADMIN_DVA
 CORS_ORIGIN=https://dva.procarservice.com.br
-FIPE_API_KEY=
+FIPE_SUBSCRIPTION_TOKEN=
 EOF
 
 echo "VITE_API_URL=/api" > /var/www/dva-veiculos/shared/frontend/.env

@@ -135,15 +135,61 @@ function senhaInicialAdmin(): string {
   return gerarSenhaTemporaria();
 }
 
+// Catálogo de marca/modelo (dados vindos da FIPE, populados por
+// `import:fipe:marcas`) vive no banco ANTIGO (`env.db.vehiclesDatabase`,
+// `painel_procar`), não no do DVA — ver nota no topo do schema.sql. Em
+// produção essas tabelas já existem lá (o projeto anterior as criou e
+// populou); num ambiente novo/local, porém, `painel_procar` pode nem existir
+// ainda. `CREATE ... IF NOT EXISTS` aqui é puramente aditivo — nunca altera
+// nem apaga nada que já esteja no banco antigo, só garante que as duas
+// tabelas de que este projeto depende existam antes do primeiro
+// `import:fipe:marcas`. Definição idêntica à documentada em
+// IMPORTACAO-FIPE.md §4 (mantenha as duas em sincronia se mudar uma).
+async function garantirTabelasVeiculosFipe(conexao: {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+}): Promise<void> {
+  const root = await mysql.createConnection({ ...conexao, multipleStatements: true });
+
+  await root.query(
+    `CREATE DATABASE IF NOT EXISTS \`${env.db.vehiclesDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+  );
+  await root.changeUser({ database: env.db.vehiclesDatabase });
+
+  await root.query(`
+    CREATE TABLE IF NOT EXISTS vehicle_brands (
+      id            INT AUTO_INCREMENT PRIMARY KEY,
+      fipe_brand_id VARCHAR(20) NOT NULL,
+      name          VARCHAR(120) NOT NULL,
+      UNIQUE KEY uq_vehicle_brands_fipe (fipe_brand_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+  await root.query(`
+    CREATE TABLE IF NOT EXISTS vehicle_models (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      brand_id       INT NOT NULL,
+      fipe_model_id  VARCHAR(20) NOT NULL,
+      name           VARCHAR(160) NOT NULL,
+      category       VARCHAR(40) NULL,
+      years_imported TINYINT(1) NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_vehicle_models_fipe (brand_id, fipe_model_id),
+      CONSTRAINT fk_vehicle_models_brand FOREIGN KEY (brand_id) REFERENCES vehicle_brands(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+  console.log(`✔ Tabelas vehicle_brands/vehicle_models garantidas em \`${env.db.vehiclesDatabase}\`.`);
+
+  await root.end();
+}
+
 async function run(): Promise<void> {
+  const credenciais = { host: env.db.host, port: env.db.port, user: env.db.user, password: env.db.password };
+
+  await garantirTabelasVeiculosFipe(credenciais);
+
   // Conexão sem database selecionada para poder criá-la.
-  const root = await mysql.createConnection({
-    host: env.db.host,
-    port: env.db.port,
-    user: env.db.user,
-    password: env.db.password,
-    multipleStatements: true,
-  });
+  const root = await mysql.createConnection({ ...credenciais, multipleStatements: true });
 
   await root.query(
     `CREATE DATABASE IF NOT EXISTS \`${env.db.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,

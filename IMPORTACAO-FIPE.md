@@ -23,15 +23,15 @@ O script vive **dentro do repositório do backend** (mesmo `git clone`/deploy do
 Diferente da versão anterior deste guia (quando os scripts eram arquivos avulsos com senha e chave de API escritas direto no código), agora o script lê tudo do `.env` do backend:
 
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — as mesmas variáveis que o resto da API já usa.
-- `FIPE_API_KEY` — chave da API pública da FIPE (gere/consulte em [parallelum.com.br/fipe](https://parallelum.com.br/fipe)).
+- `FIPE_SUBSCRIPTION_TOKEN` — **opcional**. A API usada é a v2 pública (`fipe.parallelum.com.br/api/v2`), que funciona **sem nenhum token**, limitada a 500 requisições/dia por IP; um token gratuito (cadastro em [fipe.parallelum.com.br](https://fipe.parallelum.com.br)) eleva o limite a 1000/dia. O token, quando presente, vai no header `X-Subscription-Token` — nunca como `Authorization: Bearer` (a v2 responde 401 se receber isso).
 
-Em produção isso é o `.env` compartilhado em `/var/www/procar/shared/backend/.env` (Seção 11.1 do DEPLOY.md), com `chmod 600` — nada novo a configurar além de preencher `FIPE_API_KEY` lá, uma vez. **Nunca cole a chave da FIPE em chat, e-mail ou commit** — se ela já circulou por algum desses canais, gere uma nova.
+Em produção isso é o `.env` compartilhado em `/var/www/procar/shared/backend/.env` (Seção 11.1 do DEPLOY.md), com `chmod 600`. Como o token é opcional, não há nada obrigatório a preencher aqui além do que o resto da API já usa — só vale a pena se o catálogo completo (todas as marcas da FIPE, não só as do grupo) esbarrar no limite de 500/dia numa única importação. **Nunca cole o token da FIPE em chat, e-mail ou commit** — se ele já circulou por algum desses canais, gere um novo.
 
 ## 4. Passo 1 — Garantir que as tabelas existem na VPS
 
-Desde que `vehicle_brands`/`vehicle_models` entraram no `schema.sql` (como estrutura vazia — os dados continuam vindo só deste script), **`npm run db:setup` já cria as duas tabelas**. Se você rodou `db:setup` normalmente, pode pular direto para o Passo 2.
+`npm run db:setup` já cria as duas tabelas automaticamente — não em `schema.sql` (esse é só o schema do banco `dva_veiculos`), mas direto em `database/setup.ts`, que garante `vehicle_brands`/`vehicle_models` (`CREATE TABLE IF NOT EXISTS`) no banco **antigo** (`DB_VEHICLES_NAME`, padrão `painel_procar`) antes de tocar no schema novo. Puramente aditivo: nunca altera nem apaga nada que já exista lá. Se você rodou `db:setup` normalmente, pode pular direto para o Passo 2.
 
-Só é preciso criar manualmente se você está num banco **anterior** a essa mudança e ainda não rodou `db:setup` de novo (ele é idempotente — `CREATE TABLE IF NOT EXISTS` — então rodá-lo novamente é seguro e não apaga nada):
+Só é preciso criar manualmente se, por algum motivo, você não puder rodar `db:setup` contra esse banco (ele é idempotente — `CREATE TABLE IF NOT EXISTS` — então rodá-lo de novo é sempre seguro e não apaga nada):
 
 ```bash
 cd /var/www/procar/current/backend
@@ -70,17 +70,16 @@ CREATE TABLE IF NOT EXISTS vehicle_models (
 
 Saia do MySQL com `EXIT;` (se tiver aberto a sessão manual).
 
-## 5. Passo 2 — Preencher `FIPE_API_KEY` e rodar
+## 5. Passo 2 — Rodar (token é opcional)
 
-O script já está na VPS junto com o resto do backend (`current/backend/src/database/import-fipe/`), então não há nada para copiar. Só falta a chave da API:
+O script já está na VPS junto com o resto do backend (`current/backend/src/database/import-fipe/`), então não há nada para copiar nem nenhuma chave obrigatória a preencher — a v2 da FIPE funciona sem autenticação. Só se quiser o limite maior (1000 req/dia em vez de 500):
 
 ```bash
 nano /var/www/procar/shared/backend/.env
 ```
 
-Garanta que a linha exista e esteja preenchida:
 ```bash
-FIPE_API_KEY=SUA_CHAVE_DA_API_FIPE_AQUI
+FIPE_SUBSCRIPTION_TOKEN=SEU_TOKEN_GRATUITO_AQUI
 ```
 
 Como o `.env` do backend já é reaproveitado via symlink em cada release (`ln -sf .../shared/backend/.env backend/.env`, Seção 12.3 do DEPLOY.md), não precisa repetir isso a cada deploy.
@@ -142,7 +141,7 @@ Conforme o `CLAUDE.md` (seção 6 e "Próximos Passos"), a coluna `category` de 
 ## 9. Checklist rápido
 
 - [ ] Tabelas `vehicle_brands`, `vehicle_models` existem no banco da VPS (criadas por `db:setup`; passo 4 só se precisar criar à mão).
-- [ ] `FIPE_API_KEY` preenchida em `/var/www/procar/shared/backend/.env` (passo 5).
+- [ ] (Opcional) `FIPE_SUBSCRIPTION_TOKEN` preenchido em `/var/www/procar/shared/backend/.env`, se quiser o limite de 1000 req/dia em vez de 500 (passo 5).
 - [ ] `npm run import:fipe:marcas` executado com sucesso.
 - [ ] Contagem de marcas/modelos conferida no banco.
 - [ ] Testado no sistema publicado: veículos aparecem no wizard de atendimento.
